@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-900: #312e81;
+  --color-brand-glow: #818cf8;
+
+  --color-dark-bg: #090a0f;
+  --color-dark-card: rgba(15, 17, 26, 0.75);
+  --color-dark-border: rgba(255, 255, 255, 0.08);
+  --color-dark-hover: rgba(255, 255, 255, 0.04);
+
+  --shadow-glow: 0 0 25px -5px rgba(99, 102, 241, 0.35);
+  --shadow-glow-lg: 0 0 40px -10px rgba(99, 102, 241, 0.5);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+@layer base {
+  :root {
+    --bg-main: #f8fafc;
+    --bg-card: rgba(255, 255, 255, 0.85);
+    --border-color: rgba(226, 232, 240, 0.8);
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+  }
+
+  .dark {
+    --bg-main: #090a0f;
+    --bg-card: rgba(15, 17, 26, 0.75);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --text-primary: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Linear & Vercel Glassmorphism */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+}
+
+.glass-panel-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Glowing Elements */
+.glow-accent {
+  box-shadow: 0 0 20px -3px rgba(99, 102, 241, 0.4);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+
+/* Skeleton Loading Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-loading {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

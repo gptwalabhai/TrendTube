@@ -1,0 +1,21 @@
+name = "trendtube-upload-processor"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Cloudflare Queue Consumer Binding
+[[queues.consumers]]
+queue = "trendtube-upload-jobs"
+max_batch_size = 5
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "trendtube-upload-dlq"
+
+# Cloudflare R2 Storage Bucket Binding (for temporary video files)
+[[r2_buckets]]
+binding = "TEMP_VIDEO_BUCKET"
+bucket_name = "trendtube-temp-media"
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+MAX_JOB_RETRIES = "3"
