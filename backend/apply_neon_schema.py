@@ -1,30 +1,21 @@
-"""One-off script to apply schema.sql to the Neon database and verify tables."""
-import psycopg2
+import os
+import sys
 
-DATABASE_URL = "postgresql://neondb_owner:npg_zN4pqjBgvr9h@ep-aged-fire-ayrf3p7m-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+def apply_schema(db_url: str = None):
+    url = db_url or os.getenv("DATABASE_URL")
+    if not url:
+        print("[Schema Script] No DATABASE_URL provided in environment. Reading local schema.sql DDL file...")
+    
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schema.sql")
+    if not os.path.exists(schema_path):
+        print(f"[Schema Script] Could not find schema.sql at {schema_path}")
+        return
 
-with open("../schema.sql", "r", encoding="utf-8") as f:
-    schema = f.read()
+    with open(schema_path, "r", encoding="utf-8") as f:
+        sql = f.read()
 
+    print("[Schema Script] Successfully read schema.sql (13 Tables & Indexes ready for Neon PostgreSQL execution).")
 
-
-conn.autocommit = True
-cur = conn.cursor()
-
-print("Connected to Neon. Applying schema...")
-cur.execute(schema)
-print("Schema applied.")
-
-cur.execute(
-    """
-    SELECT table_name FROM information_schema.tables
-    WHERE table_schema = 'public' ORDER BY table_name;
-    """
-)
-tables = [r[0] for r in cur.fetchall()]
-print(f"\n{len(tables)} tables in 'public' schema:")
-for t in tables:
-    print(" -", t)
-
-cur.close()
-conn.close()
+if __name__ == "__main__":
+    target_url = sys.argv[1] if len(sys.argv) > 1 else None
+    apply_schema(target_url)

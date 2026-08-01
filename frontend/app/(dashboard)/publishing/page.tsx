@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Youtube,
   Calendar,
@@ -14,7 +14,8 @@ import {
   Zap,
   Server,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Inbox
 } from 'lucide-react';
 
 interface JobItem {
@@ -33,37 +34,29 @@ export default function YouTubePublishingPage() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
 
-  const [jobs, setJobs] = useState<JobItem[]>([
-    {
-      id: 'job-901',
-      title: 'Top 5 Secret AI Hacks for 10x Content Speed',
-      source_url: 'https://tiktok.com/@techcreator/video/101',
-      status: 'Uploading',
-      progress: 80,
-      youtube_video_id: 'yt_demo_901',
-      retry_count: 0,
-      created_at: '2026-08-01T17:40:00Z'
-    },
-    {
-      id: 'job-902',
-      title: 'How I Built a $10k/mo Micro SaaS in 48 Hours',
-      source_url: 'https://tiktok.com/@saasbuilder/video/102',
-      status: 'Completed',
-      progress: 100,
-      youtube_video_id: 'yt_demo_902',
-      retry_count: 0,
-      created_at: '2026-08-01T15:20:00Z'
-    },
-    {
-      id: 'job-903',
-      title: 'React 19 vs Next.js 16 - Complete Breakdown',
-      source_url: 'https://instagram.com/reel/103',
-      status: 'Queued',
-      progress: 10,
-      retry_count: 0,
-      created_at: '2026-08-01T17:50:00Z'
+  const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/jobs/create');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.jobs && Array.isArray(data.jobs)) {
+          setJobs(data.jobs);
+        }
+      }
+    } catch (e) {
+      console.log('No jobs loaded from server');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const handleCreateJob = async () => {
     if (!sourceUrl.trim()) return;
@@ -90,7 +83,6 @@ export default function YouTubePublishingPage() {
         setJobs([newJob, ...jobs]);
       }
     } catch (e) {
-      // Fallback UI insert
       const newJob: JobItem = {
         id: `job-${Date.now()}`,
         title: customTitle || 'New Viral Short Upload',
@@ -175,61 +167,79 @@ export default function YouTubePublishingPage() {
           <span className="text-xs text-slate-500 font-mono">{jobs.length} Active Jobs</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase text-[10px]">
-                <th className="py-3 px-4">Upload Job Details</th>
-                <th className="py-3 px-4">Worker Pipeline Status</th>
-                <th className="py-3 px-4">Progress</th>
-                <th className="py-3 px-4">Created Time</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {jobs.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <p className="font-semibold text-white">{item.title}</p>
-                    <p className="text-[11px] text-slate-400 font-mono line-clamp-1">{item.source_url}</p>
-                  </td>
-                  <td className="py-3.5 px-4">{getStatusBadge(item.status)}</td>
-                  <td className="py-3.5 px-4 w-40">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                        <span>{item.progress}%</span>
-                        <span>{item.retry_count > 0 ? `Retry ${item.retry_count}/3` : ''}</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
-                        <div
-                          className="bg-indigo-500 h-full rounded-full transition-all duration-500 shadow-glow"
-                          style={{ width: `${item.progress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-300 font-mono">
-                    {new Date(item.created_at).toLocaleTimeString()}
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    {item.youtube_video_id ? (
-                      <a
-                        href={`https://youtu.be/${item.youtube_video_id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1 rounded-lg bg-red-600/20 text-red-300 border border-red-500/30 text-xs font-semibold inline-flex items-center gap-1 hover:bg-red-600/30"
-                      >
-                        <ExternalLink className="w-3 h-3" /> YouTube Video
-                      </a>
-                    ) : (
-                      <span className="text-slate-500 font-mono text-[10px]">Processing...</span>
-                    )}
-                  </td>
+        {jobs.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-500">
+              <Inbox className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-white">No active upload jobs in Cloudflare Queue</h4>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Push a video URL to the Cloudflare Queue to start automated downloading, Gemini AI metadata generation, and YouTube publishing.
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="mt-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-glow"
+            >
+              <Plus className="w-4 h-4" /> Create First Upload Job
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase text-[10px]">
+                  <th className="py-3 px-4">Upload Job Details</th>
+                  <th className="py-3 px-4">Worker Pipeline Status</th>
+                  <th className="py-3 px-4">Progress</th>
+                  <th className="py-3 px-4">Created Time</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {jobs.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <p className="font-semibold text-white">{item.title}</p>
+                      <p className="text-[11px] text-slate-400 font-mono line-clamp-1">{item.source_url}</p>
+                    </td>
+                    <td className="py-3.5 px-4">{getStatusBadge(item.status)}</td>
+                    <td className="py-3.5 px-4 w-40">
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                          <span>{item.progress}%</span>
+                          <span>{item.retry_count > 0 ? `Retry ${item.retry_count}/3` : ''}</span>
+                        </div>
+                        <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                          <div
+                            className="bg-indigo-500 h-full rounded-full transition-all duration-500 shadow-glow"
+                            style={{ width: `${item.progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-300 font-mono">
+                      {new Date(item.created_at).toLocaleTimeString()}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      {item.youtube_video_id ? (
+                        <a
+                          href={`https://youtu.be/${item.youtube_video_id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1 rounded-lg bg-red-600/20 text-red-300 border border-red-500/30 text-xs font-semibold inline-flex items-center gap-1 hover:bg-red-600/30"
+                        >
+                          <ExternalLink className="w-3 h-3" /> YouTube Video
+                        </a>
+                      ) : (
+                        <span className="text-slate-500 font-mono text-[10px]">Processing...</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Create Upload Job Modal */}

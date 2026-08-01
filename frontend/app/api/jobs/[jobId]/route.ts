@@ -18,17 +18,10 @@ export async function GET(
     const dbRes = await query(sql, [jobId]);
 
     if (dbRes.rows.length === 0) {
-      // Mock job response for client preview if DB table is unpopulated
       return NextResponse.json({
         success: true,
-        job: {
-          id: jobId,
-          status: 'Uploading',
-          progress_percent: 80,
-          retry_count: 0,
-          source_video_url: 'https://tiktok.com/@creator/video/101',
-          youtube_video_id: 'yt_demo_101'
-        }
+        job: null,
+        message: "Job not found in database"
       });
     }
 
