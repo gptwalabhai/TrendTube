@@ -1,83 +1,48 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { API_BASE } from '@/components/api';
 import {
   Sparkles,
   Zap,
   Copy,
   Check,
   Youtube,
-  Send,
   Wand2,
   FileText,
-  Lightbulb,
-  Hash,
-  Share2,
-  RefreshCw
+  RefreshCw,
+  Inbox
 } from 'lucide-react';
 
 function AIStudioContent() {
   const searchParams = useSearchParams();
   const initialTopic = searchParams ? searchParams.get('topic') || '' : '';
 
-  const [topic, setTopic] = useState(initialTopic || '5 Secret AI Tools for 10x Productivity');
+  const [topic, setTopic] = useState(initialTopic);
   const [tone, setTone] = useState('viral');
-  const [platform, setPlatform] = useState('youtube_shorts');
   const [loading, setLoading] = useState(false);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
-
-  const [aiResult, setAiResult] = useState<any>({
-    topic: '5 Secret AI Tools for 10x Productivity',
-    titles: [
-      'I Tried 5 Secret AI Tools For 30 Days (Crazy Results)',
-      'The Ultimate AI Productivity Stack Nobody Is Talking About',
-      'Stop Wasting Hours! Use These 5 AI Tools Instead',
-      '5 AI Tools That Feel Illegal To Know in 2026',
-      'How Top 1% Creators Automate 90% of Their Content'
-    ],
-    hooks: [
-      '⚡ Stop scrolling! If you spend more than 2 hours making content, these 5 AI tools will save your life.',
-      '👀 99% of creators are using AI wrong. Here is the exact stack million-view channels rely on.',
-      '🚨 I tested over 100 AI tools so you don’t have to. Here are the top 5 winners.'
-    ],
-    script: `[0:00 - 0:03 HOOK]
-(Visual: Fast jump-cut with neon text overlay)
-"If you want to create 10x more content in half the time, stop doing it manually!"
-
-[0:03 - 0:15 TOOL 1: TREND ENGINE]
-"First up, TrendTube AI. It analyzes viral outlier scores so you know what works before you even hit record."
-
-[0:15 - 0:30 TOOL 2: AUTO SCRIPTER]
-"Second, use AI Studio to generate high-retention 15-second hooks that double your watch time completion rate."
-
-[0:30 - 0:45 CALL TO ACTION]
-"Save this video right now, and comment 'STACK' to get the full tool list sent to your DMs!"`,
-    cta: 'Save this video and subscribe to TrendTube AI for daily viral breakdowns!',
-    hashtags: ['#AITools', '#Productivity', '#ViralShorts', '#TrendTubeAI', '#CreatorEconomy'],
-    keywords: ['ai tools', 'productivity', 'viral hooks', 'youtube shorts growth'],
-    video_ideas: [
-      { title: 'Testing The Most Hyped AI Tool of 2026', format: 'Experiment', est_virality: '98%' },
-      { title: '3 AI Workflow Mistakes Destroying Your Reach', format: 'Problem-Solution', est_virality: '94%' }
-    ]
-  });
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<any>(null);
 
   const handleGenerate = async () => {
     if (!topic || !topic.trim()) return;
     setLoading(true);
+    setErrorMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/ai-studio/generate`, {
+      const res = await fetch('/api/ai-studio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, tone, target_platform: platform })
+        body: JSON.stringify({ topic, contentType: tone })
       });
-      if (res.ok) {
-        const json = await res.json();
-        setAiResult(json.data);
+      const json = await res.json();
+      if (json.success && json.result) {
+        setAiResult(json.result);
+      } else {
+        setErrorMsg(json.error || 'Failed to generate content. Check your Gemini API key in Vercel settings.');
       }
-    } catch (e) {
-      // Fallback retains client preview state
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Network error connecting to AI service.');
     } finally {
       setLoading(false);
     }
@@ -97,7 +62,7 @@ function AIStudioContent() {
           <Sparkles className="w-7 h-7 text-indigo-400" /> AI Studio Workshop
         </h1>
         <p className="text-slate-400 text-xs md:text-sm">
-          Generate viral hooks, high-retention scripts, SEO titles, hashtags, and CTAs powered by AI.
+          Generate viral hooks, high-retention scripts, SEO titles, hashtags, and CTAs powered by Gemini AI.
         </p>
       </div>
 
@@ -114,6 +79,7 @@ function AIStudioContent() {
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
               placeholder="e.g. 5 Secret AI Tools for 10x Productivity..."
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950/90 border border-slate-700/80 text-white text-sm focus:outline-none focus:border-indigo-500"
             />
@@ -137,7 +103,7 @@ function AIStudioContent() {
         <div className="flex justify-end">
           <button
             onClick={handleGenerate}
-            disabled={loading}
+            disabled={loading || !topic.trim()}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:opacity-95 text-white text-sm font-semibold flex items-center gap-2 shadow-glow transition-all disabled:opacity-50"
           >
             {loading ? (
@@ -145,13 +111,43 @@ function AIStudioContent() {
             ) : (
               <Sparkles className="w-4 h-4" />
             )}
-            <span>Generate Content Suite</span>
+            <span>{loading ? 'Generating...' : 'Generate Content Suite'}</span>
           </button>
         </div>
       </div>
 
+      {/* Error Banner */}
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-medium flex items-start gap-2">
+          <span className="text-lg">⚠️</span>
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Empty State — before generation */}
+      {!aiResult && !loading && (
+        <div className="py-20 text-center space-y-3 bg-slate-900/40 rounded-3xl border border-slate-800/60 p-8">
+          <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-indigo-400">
+            <Sparkles className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-white">Enter a topic to generate content</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Type any video topic above (e.g. "5 Secret AI Tools") and click <strong>Generate Content Suite</strong>. 
+            Gemini AI will create SEO titles, viral hooks, scripts, hashtags, and more.
+          </p>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="py-16 text-center space-y-4 bg-slate-900/40 rounded-3xl border border-slate-800/60 p-8">
+          <div className="w-12 h-12 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm text-slate-400">Generating content with Gemini AI...</p>
+        </div>
+      )}
+
       {/* Generated Outputs Grid */}
-      {aiResult && (
+      {aiResult && !loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Titles Section */}
           <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">

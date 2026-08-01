@@ -5,9 +5,7 @@ import { Settings, Key, Bell, User, Copy, Check, Plus, Trash2 } from 'lucide-rea
 
 export default function SettingsPage() {
   const [copiedKey, setCopiedKey] = useState(false);
-  const [apiKeys, setApiKeys] = useState([
-    { id: 'key1', name: 'Production Scraper Backend', key: 'tt_live_948a291f0a2...', created: '2026-07-15' }
-  ]);
+  const [apiKeys, setApiKeys] = useState<{id: string; name: string; key: string; created: string}[]>([]);
 
   const copyKey = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -34,11 +32,11 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div>
             <label className="text-slate-400 mb-1 block">Full Name</label>
-            <input type="text" defaultValue="Alex Trendmaster" className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500" />
+            <input type="text" defaultValue="" placeholder="Your name" className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500" />
           </div>
           <div>
             <label className="text-slate-400 mb-1 block">Email Address</label>
-            <input type="email" defaultValue="creator@trendtube.ai" className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500" />
+            <input type="email" defaultValue="" placeholder="your@email.com" className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500" />
           </div>
         </div>
       </div>

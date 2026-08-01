@@ -8,70 +8,11 @@ import {
   TrendingUp,
   Youtube,
   Eye,
-  ArrowUpRight,
-  Plus,
-  Play,
-  Share2,
-  Bookmark,
   Zap,
   Activity,
-  Layers
+  BarChart2,
+  ArrowRight
 } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
-
-const chartData = [
-  { name: 'Mon', views: 420000, virality: 82 },
-  { name: 'Tue', views: 580000, virality: 89 },
-  { name: 'Wed', views: 720000, virality: 94 },
-  { name: 'Thu', views: 980000, virality: 91 },
-  { name: 'Fri', views: 1450000, virality: 97 },
-  { name: 'Sat', views: 1890000, virality: 99 },
-  { name: 'Sun', views: 2400000, virality: 96 },
-];
-
-const mockRecentViral = [
-  {
-    id: '1',
-    title: '5 AI Secret Tools You Did Not Know Existed',
-    author: '@techmindset',
-    platform: 'youtube',
-    views: '2.4M',
-    virality: 98.4,
-    outlier: '8.2x',
-    thumbnail: 'https://picsum.photos/seed/dash1/600/800',
-    time: '2h ago'
-  },
-  {
-    id: '2',
-    title: 'How I Built a $10k/mo Micro SaaS in 48 Hours',
-    author: '@saasbuilder',
-    platform: 'tiktok',
-    views: '1.8M',
-    virality: 94.1,
-    outlier: '6.4x',
-    thumbnail: 'https://picsum.photos/seed/dash2/600/800',
-    time: '4h ago'
-  },
-  {
-    id: '3',
-    title: 'React 19 vs Next.js 16 - Complete Breakdown',
-    author: '@codecraft',
-    platform: 'instagram',
-    views: '950K',
-    virality: 91.2,
-    outlier: '4.9x',
-    thumbnail: 'https://picsum.photos/seed/dash3/600/800',
-    time: '6h ago'
-  }
-];
 
 export default function DashboardPage() {
   const [profileUrl, setProfileUrl] = useState('');
@@ -122,9 +63,9 @@ export default function DashboardPage() {
               <Eye className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-display font-bold text-white">148,920</p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-            <ArrowUpRight className="w-3.5 h-3.5" /> +24.8% this week
+          <p className="text-2xl font-display font-bold text-white">0</p>
+          <div className="mt-2 text-xs text-slate-500 font-medium">
+            Connect APIs to see live data
           </div>
         </div>
 
@@ -135,9 +76,9 @@ export default function DashboardPage() {
               <Flame className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-display font-bold text-white">99.4 <span className="text-sm font-normal text-slate-400">/ 100</span></p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-rose-400 font-medium">
-            <TrendingUp className="w-3.5 h-3.5" /> 8.4x Outlier Spike
+          <p className="text-2xl font-display font-bold text-white">—</p>
+          <div className="mt-2 text-xs text-slate-500 font-medium">
+            Connect APIs to see live data
           </div>
         </div>
 
@@ -148,9 +89,9 @@ export default function DashboardPage() {
               <Youtube className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-display font-bold text-white">14 Scheduled</p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-indigo-400 font-medium">
-            Next upload in 3h 15m
+          <p className="text-2xl font-display font-bold text-white">0</p>
+          <div className="mt-2 text-xs text-slate-500 font-medium">
+            Connect APIs to see live data
           </div>
         </div>
 
@@ -161,16 +102,16 @@ export default function DashboardPage() {
               <Activity className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-display font-bold text-white">+48.5K <span className="text-sm font-normal text-slate-400">views/hr</span></p>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-            <ArrowUpRight className="w-3.5 h-3.5" /> Optimal Posting Time
+          <p className="text-2xl font-display font-bold text-white">—</p>
+          <div className="mt-2 text-xs text-slate-500 font-medium">
+            Connect APIs to see live data
           </div>
         </div>
       </div>
 
       {/* Main Charts & Live Radar Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: Views Velocity Chart */}
+        {/* Left 2 Cols: Views Velocity Chart Area */}
         <div className="lg:col-span-2 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -182,28 +123,17 @@ export default function DashboardPage() {
             <span className="text-xs font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg">Real-Time Sync</span>
           </div>
 
-          <div className="h-72 w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(value) => `${value / 1000}k`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff' }}
-                />
-                <Area type="monotone" dataKey="views" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-72 w-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl bg-slate-950/40 p-6 text-center">
+            <div className="p-3 rounded-full bg-indigo-500/10 text-indigo-400 mb-3 border border-indigo-500/20">
+              <BarChart2 className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-medium text-slate-300">
+              Analytics will appear here once you start scraping profiles
+            </p>
           </div>
         </div>
 
-        {/* Right 1 Col: Live Viral Feed */}
+        {/* Right 1 Col: Live Viral Feed / Recent Viral Videos */}
         <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -213,25 +143,19 @@ export default function DashboardPage() {
               <Link href="/trends" className="text-xs text-indigo-400 hover:underline">View All</Link>
             </div>
 
-            <div className="space-y-3">
-              {mockRecentViral.map((item) => (
-                <div key={item.id} className="p-3 rounded-xl bg-slate-800/40 border border-slate-800 hover:border-indigo-500/40 transition-all flex gap-3 group">
-                  <div className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
-                    <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-black/80 px-1 rounded text-white">{item.virality}</span>
-                  </div>
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-white truncate">{item.title}</p>
-                      <p className="text-[11px] text-slate-400">{item.author} • {item.views} views</p>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="text-emerald-400 font-mono font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">{item.outlier} Outlier</span>
-                      <span className="text-slate-500">{item.time}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="py-12 px-4 border border-dashed border-slate-800 rounded-xl bg-slate-950/40 text-center flex flex-col items-center justify-center gap-3">
+              <div className="p-3 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <Flame className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-medium text-slate-300">
+                Scrape your first profile on the Trends page to see videos here
+              </p>
+              <Link
+                href="/trends"
+                className="inline-flex items-center gap-1.5 text-xs text-indigo-400 font-semibold hover:text-indigo-300 hover:underline transition-colors"
+              >
+                Go to Trends <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
 
