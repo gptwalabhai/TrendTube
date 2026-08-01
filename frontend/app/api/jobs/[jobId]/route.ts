@@ -3,10 +3,10 @@ import { query } from '@/lib/db';
 
 export async function GET(
   request: Request,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const { jobId } = params;
+    const { jobId } = await params;
 
     const sql = `
       SELECT id, user_id, status, source_video_url, custom_title, youtube_video_id,
