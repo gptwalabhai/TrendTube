@@ -1,33 +1,37 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { Flame, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { Flame, Lock, ArrowRight, AlertCircle, Sparkles, CheckCircle2, Zap } from 'lucide-react';
 
-function LoginContent() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { register } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const from = searchParams.get('from') || '/dashboard';
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
 
-    const res = await login({ email, password });
+    const res = await register({ name, email, password });
 
     if (res.success) {
-      router.push(from);
+      router.push('/dashboard');
     } else {
-      setError(res.error || 'Invalid credentials');
+      setError(res.error || 'Registration failed');
       setLoading(false);
     }
   };
@@ -40,8 +44,17 @@ function LoginContent() {
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white mx-auto shadow-glow">
             <Flame className="w-6 h-6 animate-pulse" />
           </div>
-          <h1 className="text-2xl font-display font-black text-white tracking-tight">TrendTube AI</h1>
-          <p className="text-xs text-slate-400">Viral Discovery & Automated YouTube Publishing Engine</p>
+          <h1 className="text-2xl font-display font-black text-white tracking-tight">Create Creator Account</h1>
+          <p className="text-xs text-slate-400">Join TrendTube AI & start publishing viral YouTube Shorts</p>
+        </div>
+
+        {/* Welcome Bonus Callout */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 text-xs text-indigo-200 flex items-center gap-3">
+          <Zap className="w-5 h-5 text-amber-400 fill-amber-400/20 shrink-0" />
+          <div>
+            <span className="font-bold text-white block">10,000 Credits Welcome Bonus</span>
+            <span className="text-[11px] text-slate-400">Claim 10,000 free credits instantly upon registration!</span>
+          </div>
         </div>
 
         {error && (
@@ -51,14 +64,26 @@ function LoginContent() {
           </div>
         )}
 
-        {/* Custom Login Form */}
-        <form onSubmit={handleLoginSubmit} className="space-y-4">
+        {/* Custom Registration Form */}
+        <form onSubmit={handleRegisterSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-300 mb-1.5 block">Full Name</label>
+            <input
+              type="text"
+              required
+              placeholder="Alex Smith"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+
           <div>
             <label className="text-xs font-semibold text-slate-300 mb-1.5 block">Email Address</label>
             <input
               type="email"
               required
-              placeholder="creator@domain.com"
+              placeholder="alex@domain.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
@@ -66,14 +91,12 @@ function LoginContent() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-300">Password</label>
-            </div>
+            <label className="text-xs font-semibold text-slate-300 mb-1.5 block">Password</label>
             <div className="relative">
               <input
                 type="password"
                 required
-                placeholder="••••••••"
+                placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
@@ -87,32 +110,18 @@ function LoginContent() {
             disabled={loading}
             className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:opacity-95 text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-glow transition-all disabled:opacity-50"
           >
-            <span>{loading ? 'Authenticating...' : 'Sign In to Dashboard'}</span>
+            <span>{loading ? 'Creating Account...' : 'Register & Claim 10,000 Credits'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
         <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
-          Don't have an account yet?{' '}
-          <Link href="/register" className="text-indigo-400 font-semibold hover:underline">
-            Register & Get 10,000 Free Credits
+          Already have an account?{' '}
+          <Link href="/login" className="text-indigo-400 font-semibold hover:underline">
+            Sign In Here
           </Link>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#090a0f] flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      }
-    >
-      <LoginContent />
-    </Suspense>
   );
 }

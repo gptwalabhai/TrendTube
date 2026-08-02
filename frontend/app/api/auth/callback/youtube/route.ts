@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import { cookies } from 'next/headers';
+import { getSessionUser, SESSION_COOKIE_NAME, encryptToken } from '@/lib/auth';
+import { query } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
@@ -13,6 +15,15 @@ export async function GET(request: Request) {
 
     if (!code) {
       return NextResponse.redirect(new URL('/accounts?error=no_code', request.url));
+    }
+
+    // Get current authenticated user session
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    const user = sessionToken ? await getSessionUser(sessionToken) : null;
+
+    if (!user) {
+      return NextResponse.redirect(new URL('/login?from=/accounts', request.url));
     }
 
     const clientId = (process.env.YOUTUBE_CLIENT_ID || '').trim();
@@ -49,6 +60,8 @@ export async function GET(request: Request) {
     let channelId = '';
     let channelHandle = '@youtube';
     let subscriberCount = 0;
+    let totalViews = 0;
+    let totalVideos = 0;
     let channelAvatar = '';
 
     try {
@@ -63,68 +76,55 @@ export async function GET(request: Request) {
           channelId = channel.id || '';
           channelHandle = channel.snippet?.customUrl || `@${channelName.replace(/\s/g, '')}`;
           subscriberCount = parseInt(channel.statistics?.subscriberCount || '0', 10);
+          totalViews = parseInt(channel.statistics?.viewCount || '0', 10);
+          totalVideos = parseInt(channel.statistics?.videoCount || '0', 10);
           channelAvatar = channel.snippet?.thumbnails?.default?.url || '';
         }
       }
     } catch (e) {
-      console.error('Failed to fetch channel info:', e);
+      console.error('Failed to fetch YouTube channel info:', e);
     }
 
-    // Store in Neon database (matching schema.sql OAuthAccounts columns)
-    const databaseUrl = process.env.DATABASE_URL || '';
-    if (databaseUrl) {
-      try {
-        const sql = neon(databaseUrl);
-        const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
+    const encryptedAccess = encryptToken(tokens.access_token);
+    const encryptedRefresh = encryptToken(tokens.refresh_token || '');
+    const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
 
-        // First ensure a default user exists
-        await sql`
-          INSERT INTO "Users" (id, email, display_name, auth_provider, auth_provider_id, created_at, updated_at)
-          VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'default@trendtube.ai', 'Default User', 'google', ${channelId}, NOW(), NOW())
-          ON CONFLICT (id) DO NOTHING
-        `;
+    // Upsert into OAuthAccounts table linked to real user
+    await query(
+      `INSERT INTO OAuthAccounts (
+        user_id, provider, channel_id, account_handle, account_name,
+        provider_account_id, avatar_url, subscriber_count, total_views, total_videos,
+        encrypted_access_token, encrypted_refresh_token, token_expires_at, is_connected
+      )
+      VALUES ($1, 'youtube', $2, $3, $4, $2, $5, $6, $7, $8, $9, $10, $11, TRUE)
+      ON CONFLICT (user_id, provider, account_handle)
+      DO UPDATE SET
+        channel_id = $2,
+        account_name = $4,
+        avatar_url = $5,
+        subscriber_count = $6,
+        total_views = $7,
+        total_videos = $8,
+        encrypted_access_token = $9,
+        encrypted_refresh_token = CASE WHEN $10 != '' THEN $10 ELSE OAuthAccounts.encrypted_refresh_token END,
+        token_expires_at = $11,
+        is_connected = TRUE,
+        updated_at = NOW()`,
+      [
+        user.id,
+        channelId,
+        channelHandle,
+        channelName,
+        channelAvatar,
+        subscriberCount,
+        totalViews,
+        totalVideos,
+        encryptedAccess,
+        encryptedRefresh,
+        expiresAt
+      ]
+    );
 
-        // Upsert OAuth account matching schema columns
-        await sql`
-          INSERT INTO "OAuthAccounts" (
-            id, user_id, provider, account_handle, account_name, 
-            provider_account_id, avatar_url, followers_count,
-            encrypted_access_token, encrypted_refresh_token, 
-            token_expires_at, is_connected, created_at, updated_at
-          )
-          VALUES (
-            gen_random_uuid(),
-            '00000000-0000-0000-0000-000000000001'::uuid,
-            'youtube',
-            ${channelHandle},
-            ${channelName},
-            ${channelId},
-            ${channelAvatar},
-            ${subscriberCount},
-            ${tokens.access_token},
-            ${tokens.refresh_token || ''},
-            ${expiresAt}::timestamptz,
-            TRUE,
-            NOW(),
-            NOW()
-          )
-          ON CONFLICT (user_id, provider, account_handle) 
-          DO UPDATE SET 
-            account_name = ${channelName},
-            encrypted_access_token = ${tokens.access_token},
-            encrypted_refresh_token = COALESCE(NULLIF(${tokens.refresh_token || ''}, ''), "OAuthAccounts".encrypted_refresh_token),
-            token_expires_at = ${expiresAt}::timestamptz,
-            avatar_url = ${channelAvatar},
-            followers_count = ${subscriberCount},
-            is_connected = TRUE,
-            updated_at = NOW()
-        `;
-      } catch (dbErr) {
-        console.error('Database save failed (non-fatal):', dbErr);
-      }
-    }
-
-    // Redirect to accounts page with success
     const successParams = new URLSearchParams({
       connected: 'youtube',
       channel: channelName,

@@ -14,11 +14,11 @@ import {
   User,
   LogOut,
   ShieldCheck,
-  KeyRound
+  Zap
 } from 'lucide-react';
 
 export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
-  const { user, logout, login } = useAuth();
+  const { user, logout, setCreditModalOpen } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -40,6 +40,15 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
       {/* Right Controls */}
       <div className="flex items-center gap-3.5">
+        {/* Credits Badge */}
+        <button
+          onClick={() => setCreditModalOpen(true)}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-mono font-bold transition-all"
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+          <span>{user?.credits?.toLocaleString() ?? 10000} Credits</span>
+        </button>
+
         {/* Dynamic YouTube Connection Status Badge */}
         <Link
           href="/accounts"
@@ -50,7 +59,7 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }`}
         >
           <Youtube className={`w-4 h-4 ${isConnected ? 'text-red-500 fill-red-500' : 'text-slate-500'}`} />
-          <span>{isConnected ? `Connected: ${user?.youtubeChannelName || 'YouTube Channel'}` : 'YouTube Not Connected'}</span>
+          <span>{isConnected ? `Connected: ${user?.youtubeAccount?.account_name || 'YouTube'}` : 'YouTube Not Connected'}</span>
           {isConnected ? (
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
           ) : (
@@ -66,7 +75,6 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full animate-ping"></span>
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full"></span>
           </button>
 
@@ -74,15 +82,15 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-slate-900 border border-slate-800 shadow-glass p-4 z-50 animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">Notifications</span>
-                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">2 New</span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">System Status</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">Active</span>
               </div>
               <div className="space-y-2.5">
                 <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-800 text-xs">
                   <p className="font-semibold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Live Scraper Ready
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Real Backend & DB Active
                   </p>
-                  <p className="text-slate-400 text-[11px] mt-0.5">Apify & Gemini APIs active for real profile scraping.</p>
+                  <p className="text-slate-400 text-[11px] mt-0.5">Apify scraper, Gemini AI, and YouTube OAuth synced.</p>
                 </div>
               </div>
             </div>
@@ -97,20 +105,20 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 p-0.5">
               <img
-                src={user?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=gptwalabhai'}
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'trendtube'}`}
                 alt="User Avatar"
                 className="w-full h-full rounded-[10px] bg-slate-900 object-cover"
               />
             </div>
             <div className="hidden md:block text-left">
               <p className="text-xs font-semibold text-white leading-tight flex items-center gap-1">
-                {user?.name || 'Guest Creator'}
+                {user?.name || 'Creator'}
                 {user?.role === 'admin' && (
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                 )}
               </p>
               <p className="text-[10px] font-mono text-slate-400">
-                {user?.role === 'admin' ? 'Super Admin' : `${user?.credits || 0} Credits`}
+                {user?.role === 'admin' ? 'Super Admin' : `${user?.credits?.toLocaleString() || 10000} Credits`}
               </p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -130,16 +138,6 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
               </div>
 
               <div className="space-y-1">
-                {user?.role === 'admin' && (
-                  <Link
-                    href="/admin"
-                    onClick={() => setShowProfileMenu(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-amber-300 hover:bg-amber-500/10 transition-colors"
-                  >
-                    <ShieldCheck className="w-4 h-4" /> Admin Control Center
-                  </Link>
-                )}
-
                 <Link
                   href="/settings"
                   onClick={() => setShowProfileMenu(false)}
@@ -147,16 +145,6 @@ export function Header({ onOpenSearch }: { onOpenSearch?: () => void }) {
                 >
                   <User className="w-4 h-4 text-slate-400" /> Account Settings
                 </Link>
-
-                <button
-                  onClick={() => {
-                    login('gptwalabhai@gmail.com');
-                    setShowProfileMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-indigo-300 hover:bg-indigo-500/10 transition-colors text-left"
-                >
-                  <KeyRound className="w-4 h-4 text-indigo-400" /> Login as Admin (gptwalabhai)
-                </button>
 
                 <button
                   onClick={() => {

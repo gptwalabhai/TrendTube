@@ -1,48 +1,33 @@
-# TrendTube AI — Production Deployment Guide
+# TrendTube AI — Production Vercel & Neon Deployment Checklist
 
-This guide details how to deploy **TrendTube AI** to production using **Coolify**, **Docker Compose**, or a **VPS (Ubuntu/Debian)**.
+## 1. Database Setup (Neon PostgreSQL)
 
----
+1. Sign into your [Neon Console](https://console.neon.tech).
+2. Create a new PostgreSQL database or retrieve your connection string (`DATABASE_URL`).
+3. Run the SQL DDL commands in [`schema.sql`](file:///c:/Users/AIMS%20TECH/OneDrive/Desktop/downloader/yt%20auto/schema.sql) in the Neon SQL Editor.
 
-## 🚀 Option 1: Deployment via Docker Compose (Recommended)
+## 2. Environment Variables Checklist (Vercel Project Settings)
 
-### Step 1: Clone Repository & Configure `.env`
-```bash
-git clone https://github.com/your-org/trendtube-ai.git
-cd trendtube-ai
-cp .env.example .env
-```
-Edit `.env` to set production passwords (`POSTGRES_PASSWORD`, `SECRET_KEY`, and optional API keys for OpenAI/YouTube/Stripe).
+In Vercel → Settings → Environment Variables, configure:
 
-### Step 2: Start Multi-Container Stack
-```bash
-docker-compose up -d --build
-```
-This launches:
-- **PostgreSQL 16** (Database automatically initialized using `schema.sql`)
-- **Redis 7** (Caching & Job Queue)
-- **FastAPI Engine** (Port 8000)
-- **Next.js 16 Web App** (Port 3000)
+| Key | Description | Example |
+|---|---|---|
+| `DATABASE_URL` | Neon PostgreSQL pooled connection URL | `postgresql://user:pass@ep-...neon.tech/neondb?sslmode=require` |
+| `TOKEN_ENCRYPTION_KEY` | 32-character AES encryption key | `trendtube_secret_key_32bytes_len_123` |
+| `ADMIN_EMAIL` | Master admin login email | `aly@trendtube.ai` |
+| `ADMIN_PASSWORD` | Master admin login password | `AdminSecret123!` |
+| `GEMINI_API_KEY` | Google Gemini 1.5 Flash API Key | `AIzaSy...` |
+| `APIFY_API_KEY` | Apify Actor API Key | `apify_api_...` |
+| `YOUTUBE_CLIENT_ID` | Google OAuth Client ID | `xxx.apps.googleusercontent.com` |
+| `YOUTUBE_CLIENT_SECRET` | Google OAuth Client Secret | `GOCSPX-...` |
+| `YOUTUBE_REDIRECT_URI` | YouTube OAuth Callback URL | `https://your-domain.vercel.app/api/auth/callback/youtube` |
 
-### Step 3: Verify Services Health
-```bash
-docker-compose ps
-```
+## 3. Production Verification Steps
 
----
-
-## 🌐 Option 2: Deployment via Coolify / Dokku / CapRover
-
-1. Connect your Git repository to **Coolify**.
-2. Select **Docker Compose** as the build pack.
-3. Set the compose path to `./docker-compose.yml`.
-4. Add the environment variables from `.env.example` into Coolify's Environment Settings.
-5. Click **Deploy**. Coolify will build both frontend & backend containers and automatically assign SSL certificates via Traefik.
-
----
-
-## 🔒 Security & SSL Recommendations
-
-- Point your domain DNS `A` records (`trendtube.ai` and `api.trendtube.ai`) to your VPS IP address.
-- Use Caddy, Nginx, or Traefik with Let's Encrypt for automatic HTTPS/TLS termination.
-- Set `SECRET_KEY` to a cryptographically strong 256-bit string.
+- [x] **Registration**: Navigate to `/register` → Confirm account created in Neon DB with 10,000 initial credits.
+- [x] **Login & Session Persistence**: Navigate to `/login` → Refresh browser → Confirm user session persists.
+- [x] **Protected Routes**: Attempt accessing `/dashboard` while unauthenticated → Confirm automatic redirect to `/login`.
+- [x] **Admin Security**: Access `/alyautomates` as regular user → Confirm 403 Forbidden. Access as admin → Confirm full control panel loads.
+- [x] **Credit Deductions**: Perform search (-500 credits) or upload (-1,000 credits) → Confirm atomic DB balance deduction.
+- [x] **YouTube OAuth**: Connect YouTube account → Refresh page → Confirm channel status remains connected with automatic access token refresh.
+- [x] **Video Player & Playlists**: Preview video modal → Save selected videos to Neon DB custom playlists.
