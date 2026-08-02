@@ -15,9 +15,9 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/accounts?error=no_code', request.url));
     }
 
-    const clientId = process.env.YOUTUBE_CLIENT_ID || '';
-    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET || '';
-    const redirectUri = process.env.YOUTUBE_REDIRECT_URI || '';
+    const clientId = (process.env.YOUTUBE_CLIENT_ID || '').trim();
+    const clientSecret = (process.env.YOUTUBE_CLIENT_SECRET || '').trim();
+    const redirectUri = (process.env.YOUTUBE_REDIRECT_URI || '').trim();
 
     if (!clientId || !clientSecret || !redirectUri) {
       return NextResponse.redirect(new URL('/accounts?error=oauth_not_configured', request.url));

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const clientId = process.env.YOUTUBE_CLIENT_ID || '';
-  const redirectUri = process.env.YOUTUBE_REDIRECT_URI || '';
+  const clientId = (process.env.YOUTUBE_CLIENT_ID || '').trim();
+  const redirectUri = (process.env.YOUTUBE_REDIRECT_URI || '').trim();
 
   if (!clientId || !redirectUri) {
     return NextResponse.json(
