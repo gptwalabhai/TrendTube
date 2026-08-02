@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import {
   Flame,
   LayoutDashboard,
@@ -16,25 +17,36 @@ import {
   ShieldAlert,
   Users,
   ChevronRight,
-  Zap
+  Zap,
+  LogIn
 } from 'lucide-react';
-
-const navigationItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Trend Discovery', href: '/trends', icon: Flame, badge: 'HOT' },
-  { name: 'AI Studio', href: '/ai-studio', icon: Sparkles, badge: 'PRO' },
-  { name: 'Collections', href: '/collections', icon: FolderHeart },
-  { name: 'YouTube Publishing', href: '/publishing', icon: Youtube },
-  { name: 'Upload Scheduler', href: '/scheduler', icon: Calendar },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Connected Accounts', href: '/accounts', icon: Users },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
-  { name: 'Settings', href: '/settings', icon: Settings },
-  { name: 'Admin Panel', href: '/admin', icon: ShieldAlert },
-];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const isAdmin = user?.role === 'admin' || user?.email === 'gptwalabhai@gmail.com';
+
+  const navigationItems = [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Trend Discovery', href: '/trends', icon: Flame, badge: 'HOT' },
+    { name: 'AI Studio', href: '/ai-studio', icon: Sparkles, badge: 'PRO' },
+    { name: 'Collections', href: '/collections', icon: FolderHeart },
+    { name: 'YouTube Publishing', href: '/publishing', icon: Youtube },
+    { name: 'Upload Scheduler', href: '/scheduler', icon: Calendar },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Connected Accounts', href: '/accounts', icon: Users },
+    { name: 'Billing', href: '/billing', icon: CreditCard },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
+
+  if (isAdmin) {
+    navigationItems.push({ name: 'Admin Panel', href: '/admin', icon: ShieldAlert, badge: 'ADMIN' });
+  }
+
+  const credits = user?.credits ?? 1000;
+  const maxCredits = user?.maxCredits ?? 1000;
+  const percentUsed = Math.min(100, Math.round(((maxCredits - credits) / maxCredits) * 100));
 
   return (
     <aside className="w-64 border-r border-slate-800/80 bg-[#0c0d14]/90 backdrop-blur-xl flex flex-col h-screen sticky top-0 z-30">
@@ -79,6 +91,8 @@ export function Sidebar() {
                 <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
                   item.badge === 'HOT'
                     ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    : item.badge === 'ADMIN'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                     : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                 }`}>
                   {item.badge}
@@ -91,23 +105,28 @@ export function Sidebar() {
         })}
       </div>
 
-      {/* Bottom Subscription Widget */}
+      {/* Bottom Subscription & Credits Widget */}
       <div className="p-3 m-3 rounded-xl bg-gradient-to-br from-indigo-950/40 via-purple-950/20 to-slate-900 border border-indigo-500/20">
         <div className="flex items-center gap-2 mb-2">
           <Zap className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-          <span className="text-xs font-semibold text-white">Pro Creator Active</span>
+          <span className="text-xs font-semibold text-white">
+            {isAdmin ? '👑 Executive Admin' : 'Pro Creator Active'}
+          </span>
         </div>
-        <p className="text-[11px] text-slate-400 leading-snug mb-3">
-          1,480 / 5,000 monthly AI trend analysis credits used.
+        <p className="text-[11px] text-slate-400 leading-snug mb-2 font-mono">
+          {credits.toLocaleString()} / {maxCredits.toLocaleString()} AI Credits available
         </p>
         <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-3">
-          <div className="bg-indigo-500 h-full w-[30%] rounded-full shadow-glow"></div>
+          <div
+            className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300"
+            style={{ width: `${Math.max(10, Math.min(100, 100 - percentUsed))}%` }}
+          ></div>
         </div>
         <Link
           href="/billing"
           className="block w-full text-center py-1.5 px-3 rounded-lg text-xs font-medium bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-200 border border-indigo-500/40 transition-colors"
         >
-          Manage Tier
+          Manage Tier & Credits
         </Link>
       </div>
     </aside>

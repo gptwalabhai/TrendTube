@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from '@/context/AuthContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -17,18 +18,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    // Dark mode is set via className="dark" on <body>; no runtime toggle needed.
   }, []);
 
   if (!mounted) {
-    return <div className="bg-[#090a0f] min-h-screen text-slate-100">{children}</div>;
+    return (
+      <AuthProvider>
+        <div className="bg-[#090a0f] min-h-screen text-slate-100">{children}</div>
+      </AuthProvider>
+    );
   }
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="bg-[#090a0f] min-h-screen text-slate-100 selection:bg-indigo-500 selection:text-white">
-        {children}
-      </div>
+      <AuthProvider>
+        <div className="bg-[#090a0f] min-h-screen text-slate-100 selection:bg-indigo-500 selection:text-white">
+          {children}
+        </div>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
