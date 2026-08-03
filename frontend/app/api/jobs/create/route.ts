@@ -60,9 +60,9 @@ export async function POST(request: Request) {
         user.id,
         initialStatus,
         sourceVideoUrl,
-        title || 'Viral YouTube Shorts',
-        description || 'Auto-published via TrendTube AI',
-        tags || ['#viral', '#shorts'],
+        title || null,                       // null = let AI generate the title
+        description || null,                  // null = let AI generate the description
+        tags || ['#viral', '#shorts', '#fyp'],
         playlistId || null,
         visibility || 'public',
         scheduleTime ? new Date(scheduleTime).toISOString() : new Date().toISOString()
