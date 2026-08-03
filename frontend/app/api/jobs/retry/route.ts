@@ -28,10 +28,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Job ID required' }, { status: 400 });
     }
 
-    // Reset job status to Queued
+    // Reset job to Queued with fresh retry count
     await query(
       `UPDATE UploadJobs
-       SET status = 'Queued', progress_percent = 10, failure_reason = NULL, created_at = NOW(), updated_at = NOW()
+       SET status = 'Queued', progress_percent = 10, failure_reason = NULL,
+           retry_count = 0, updated_at = NOW() - INTERVAL '31 minutes'
        WHERE id = $1 AND user_id = $2`,
       [jobId, user.id]
     );
