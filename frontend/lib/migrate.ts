@@ -3,19 +3,19 @@ import { query } from './db';
 let isMigrated = false;
 
 /**
- * Automatically applies SQL schema migrations to Neon PostgreSQL database
- * to ensure all columns (password_hash, credits, searches_count, etc.) exist.
+ * Comprehensive Database Migration Engine for Neon PostgreSQL.
+ * Ensures ALL tables and ALL columns exist so SQL queries never fail.
  */
 export async function runDatabaseMigrations() {
   if (isMigrated) return;
 
   try {
-    console.log('[Database Migration] Running schema verification on Neon PostgreSQL...');
+    console.log('[DB Migration] Verifying all tables & columns on Neon PostgreSQL...');
 
-    // 1. Create UUID & Trgm Extensions
+    // 1. Extensions
     await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
 
-    // 2. Create Users Table if missing
+    // 2. Users Table
     await query(`
       CREATE TABLE IF NOT EXISTS Users (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -26,8 +26,6 @@ export async function runDatabaseMigrations() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
-
-    // 3. Add missing columns to Users table safely
     await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
     await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS credits INT NOT NULL DEFAULT 10000;`);
     await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50) DEFAULT 'pro';`);
@@ -38,8 +36,9 @@ export async function runDatabaseMigrations() {
     await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS avatar_url TEXT;`);
     await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;`);
     await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;`);
+    await query(`ALTER TABLE Users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);`);
 
-    // 4. Create Sessions Table
+    // 3. Sessions Table
     await query(`
       CREATE TABLE IF NOT EXISTS Sessions (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -50,32 +49,32 @@ export async function runDatabaseMigrations() {
       );
     `);
 
-    // 5. Create OAuthAccounts Table
+    // 4. OAuthAccounts Table (All OAuth & YouTube channel fields)
     await query(`
       CREATE TABLE IF NOT EXISTS OAuthAccounts (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
         provider VARCHAR(50) NOT NULL DEFAULT 'youtube',
-        channel_id VARCHAR(255),
-        account_handle VARCHAR(255),
-        account_name VARCHAR(255),
-        provider_account_id VARCHAR(255),
-        avatar_url TEXT,
-        followers_count BIGINT DEFAULT 0,
-        subscriber_count BIGINT DEFAULT 0,
-        total_views BIGINT DEFAULT 0,
-        total_videos INT DEFAULT 0,
-        country VARCHAR(10) DEFAULT 'US',
-        encrypted_access_token TEXT,
-        encrypted_refresh_token TEXT,
-        token_expires_at TIMESTAMP WITH TIME ZONE,
-        is_connected BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS channel_id VARCHAR(255);`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS account_handle VARCHAR(255);`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS account_name VARCHAR(255);`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS provider_account_id VARCHAR(255);`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS avatar_url TEXT;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS followers_count BIGINT DEFAULT 0;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS subscriber_count BIGINT DEFAULT 0;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS total_views BIGINT DEFAULT 0;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS total_videos INT DEFAULT 0;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS country VARCHAR(10) DEFAULT 'US';`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS encrypted_access_token TEXT;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS encrypted_refresh_token TEXT;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMP WITH TIME ZONE;`);
+    await query(`ALTER TABLE OAuthAccounts ADD COLUMN IF NOT EXISTS is_connected BOOLEAN DEFAULT TRUE;`);
 
-    // 6. Create CreditHistory Table
+    // 5. CreditHistory Table
     await query(`
       CREATE TABLE IF NOT EXISTS CreditHistory (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -87,7 +86,7 @@ export async function runDatabaseMigrations() {
       );
     `);
 
-    // 7. Create Searches Table
+    // 6. Searches Table
     await query(`
       CREATE TABLE IF NOT EXISTS Searches (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -100,33 +99,33 @@ export async function runDatabaseMigrations() {
       );
     `);
 
-    // 8. Create UploadJobs Table
+    // 7. UploadJobs Table
     await query(`
       CREATE TABLE IF NOT EXISTS UploadJobs (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
-        video_id UUID,
-        target_youtube_account_id UUID REFERENCES OAuthAccounts(id) ON DELETE SET NULL,
-        status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-        custom_title TEXT,
-        custom_description TEXT,
-        custom_tags TEXT[] DEFAULT ARRAY[]::TEXT[],
         source_video_url TEXT NOT NULL,
-        youtube_video_id VARCHAR(255),
-        thumbnail_url TEXT,
-        playlist_id UUID,
-        visibility VARCHAR(20) DEFAULT 'public',
-        progress_percent INT DEFAULT 0,
-        execution_time_ms BIGINT DEFAULT 0,
-        failure_reason TEXT,
-        started_at TIMESTAMP WITH TIME ZONE,
-        completed_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS video_id UUID;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS target_youtube_account_id UUID REFERENCES OAuthAccounts(id) ON DELETE SET NULL;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'Pending';`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS custom_title TEXT;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS custom_description TEXT;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS custom_tags TEXT[] DEFAULT ARRAY[]::TEXT[];`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS youtube_video_id VARCHAR(255);`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS playlist_id UUID;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) DEFAULT 'public';`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS progress_percent INT DEFAULT 0;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS execution_time_ms BIGINT DEFAULT 0;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS failure_reason TEXT;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;`);
 
-    // 9. Create Playlists Table
+    // 8. Playlists Table
     await query(`
       CREATE TABLE IF NOT EXISTS Playlists (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -139,7 +138,7 @@ export async function runDatabaseMigrations() {
       );
     `);
 
-    // 10. Create PlaylistVideos Table
+    // 9. PlaylistVideos Table
     await query(`
       CREATE TABLE IF NOT EXISTS PlaylistVideos (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -150,7 +149,7 @@ export async function runDatabaseMigrations() {
       );
     `);
 
-    // 11. Create AdminLogs Table
+    // 10. AdminLogs Table
     await query(`
       CREATE TABLE IF NOT EXISTS AdminLogs (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -162,7 +161,7 @@ export async function runDatabaseMigrations() {
       );
     `);
 
-    // 12. Create ErrorLogs Table
+    // 11. ErrorLogs Table
     await query(`
       CREATE TABLE IF NOT EXISTS ErrorLogs (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -174,9 +173,21 @@ export async function runDatabaseMigrations() {
       );
     `);
 
+    // 12. Subscriptions Table
+    await query(`
+      CREATE TABLE IF NOT EXISTS Subscriptions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        plan VARCHAR(50) DEFAULT 'pro',
+        status VARCHAR(50) DEFAULT 'active',
+        current_period_end TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     isMigrated = true;
-    console.log('[Database Migration] Migration successfully completed on Neon PostgreSQL!');
+    console.log('[DB Migration] All tables and columns verified & updated on Neon PostgreSQL!');
   } catch (err) {
-    console.error('[Database Migration Error]:', err);
+    console.error('[DB Migration Error]:', err);
   }
 }

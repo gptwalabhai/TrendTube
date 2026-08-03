@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getSessionUser, SESSION_COOKIE_NAME, encryptToken } from '@/lib/auth';
+import { runDatabaseMigrations } from '@/lib/migrate';
 import { query } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
+    await runDatabaseMigrations();
+
     const url = new URL(request.url);
     const code = url.searchParams.get('code');
     const error = url.searchParams.get('error');
