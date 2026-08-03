@@ -1,49 +1,92 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { getSessionUser, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { deductCredits, UPLOAD_CREDIT_COST } from '@/lib/credits';
+import { runDatabaseMigrations } from '@/lib/migrate';
 import { query } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { userId, sourceVideoUrl, title, description, tags } = body;
+    await runDatabaseMigrations();
 
-    if (!sourceVideoUrl) {
-      return NextResponse.json({ success: false, error: "sourceVideoUrl is required." }, { status: 400 });
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+    if (!sessionToken) {
+      return NextResponse.json({ success: false, error: 'Unauthorized. Please login to publish videos.' }, { status: 401 });
     }
 
-    // Step 1: Insert UploadJob into Neon PostgreSQL (State: Queued)
-    const sql = `
-      INSERT INTO UploadJobs (
-        user_id, status, source_video_url, custom_title, custom_description, custom_tags, progress_percent, created_at
+    const user = await getSessionUser(sessionToken);
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized. Session expired.' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { sourceVideoUrl, title, description, tags, playlistId, visibility, scheduleTime } = body;
+
+    if (!sourceVideoUrl) {
+      return NextResponse.json({ success: false, error: 'sourceVideoUrl is required.' }, { status: 400 });
+    }
+
+    // Deduct 1,000 credits per YouTube upload
+    const creditRes = await deductCredits(
+      user.id,
+      UPLOAD_CREDIT_COST,
+      'upload_deduction',
+      `YouTube Shorts upload: ${title || sourceVideoUrl}`
+    );
+
+    if (!creditRes.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'INSUFFICIENT_CREDITS',
+          message: creditRes.error || 'Insufficient credits for upload. 1,000 credits required.'
+        },
+        { status: 402 }
+      );
+    }
+
+    const initialStatus = scheduleTime ? 'Scheduled' : 'Queued';
+
+    const dbRes = await query(
+      `INSERT INTO UploadJobs (
+        user_id, status, source_video_url, custom_title, custom_description, custom_tags,
+        playlist_id, visibility, progress_percent, started_at, created_at
       )
-      VALUES ($1, 'Queued', $2, $3, $4, $5, 10, NOW())
-      RETURNING id, status, created_at;
-    `;
-    
-    const dbRes = await query(sql, [
-      userId || 'user-demo-123',
-      sourceVideoUrl,
-      title || null,
-      description || null,
-      tags || []
-    ]);
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 10, $9, NOW())
+      RETURNING id, status, custom_title, created_at`,
+      [
+        user.id,
+        initialStatus,
+        sourceVideoUrl,
+        title || 'Viral YouTube Shorts',
+        description || 'Auto-published via TrendTube AI',
+        tags || ['#viral', '#shorts'],
+        playlistId || null,
+        visibility || 'public',
+        scheduleTime ? new Date(scheduleTime).toISOString() : new Date().toISOString()
+      ]
+    );
 
     const createdJob = dbRes.rows[0];
 
-    // Step 2: Push Job ID into Cloudflare Queue via HTTP Publisher API
-    console.log(`[Vercel Serverless Route] Job ${createdJob.id} pushed to Cloudflare Queue.`);
-
     return NextResponse.json({
       success: true,
+      newBalance: creditRes.newBalance,
       job: {
         id: createdJob.id,
         status: createdJob.status,
-        message: "UploadJob created and published to Cloudflare Queue for background execution.",
+        title: createdJob.custom_title,
+        message: scheduleTime
+          ? `Shorts scheduled for ${new Date(scheduleTime).toLocaleString()}`
+          : 'Shorts queued for instant YouTube publishing.',
         created_at: createdJob.created_at
       }
     });
 
   } catch (error: any) {
-    console.error('[API Route /api/jobs/create Error]:', error);
+    console.error('Create Job API Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

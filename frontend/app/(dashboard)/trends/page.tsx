@@ -18,7 +18,9 @@ import {
   Square,
   Inbox,
   Zap,
-  Filter
+  Calendar,
+  Send,
+  Clock
 } from 'lucide-react';
 
 interface VideoItem {
@@ -54,20 +56,26 @@ function TrendDiscoveryContent() {
 
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [loading, setLoading] = useState(false);
-  const [pipelineProcessing, setPipelineProcessing] = useState<string | null>(null);
-  const [pipelineSuccess, setPipelineSuccess] = useState<string | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
 
   // Playback & Selection
   const [activePreviewVideo, setActivePreviewVideo] = useState<VideoItem | null>(null);
   const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
 
-  // Playlist saving
+  // Playlist state
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+
+  // Scheduling state
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [visibility, setVisibility] = useState('public');
+  const [publishing, setPublishing] = useState(false);
 
   const fetchUserPlaylists = async () => {
     try {
@@ -145,6 +153,22 @@ function TrendDiscoveryContent() {
     }
   };
 
+  // Direct MP4 Download proxy without AccessDenied XML errors
+  const handleBulkDownload = () => {
+    const selected = videos.filter((v) => selectedVideoIds.includes(v.id));
+    if (selected.length === 0) return;
+
+    selected.forEach((v) => {
+      const downloadUrl = `/api/download?url=${encodeURIComponent(v.video_url)}`;
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `trendtube_${v.id}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  };
+
   const handleSaveToPlaylist = async (playlistId: string) => {
     const targetVideos = videos.filter((v) => selectedVideoIds.includes(v.id));
     if (targetVideos.length === 0) return;
@@ -157,7 +181,8 @@ function TrendDiscoveryContent() {
       });
     }
 
-    alert(`Successfully added ${targetVideos.length} videos to playlist!`);
+    setSuccessMsg(`Successfully saved ${targetVideos.length} videos to playlist!`);
+    setTimeout(() => setSuccessMsg(null), 4000);
     setIsPlaylistModalOpen(false);
     setSelectedVideoIds([]);
     fetchUserPlaylists();
@@ -179,33 +204,89 @@ function TrendDiscoveryContent() {
     }
   };
 
-  const handleBulkDownload = () => {
+  // Instant Publish / Upload Action
+  const handleInstantPublishSelected = async () => {
     const selected = videos.filter((v) => selectedVideoIds.includes(v.id));
-    selected.forEach((v) => {
-      window.open(v.video_url, '_blank');
-    });
+    if (selected.length === 0) return;
+
+    if (user && user.credits < selected.length * 1000) {
+      setCreditModalOpen(true);
+      return;
+    }
+
+    setPublishing(true);
+    let successCount = 0;
+
+    for (const vid of selected) {
+      try {
+        const res = await fetch('/api/jobs/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sourceVideoUrl: vid.video_url,
+            title: vid.title,
+            visibility: 'public'
+          })
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.newBalance !== undefined) updateUserCredits(json.newBalance);
+          successCount++;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setPublishing(false);
+    setSuccessMsg(`Queued ${successCount} videos for instant YouTube Shorts publishing!`);
+    setTimeout(() => setSuccessMsg(null), 5000);
+    setSelectedVideoIds([]);
   };
 
-  const handlePublishToYouTube = async (vidId: string, videoUrl: string, title: string) => {
-    setPipelineProcessing(vidId);
-    setPipelineSuccess(null);
-    try {
-      const res = await fetch('/api/jobs/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceVideoUrl: videoUrl, title })
-      });
-      if (res.ok) {
-        setPipelineSuccess(vidId);
-        setTimeout(() => setPipelineSuccess(null), 5000);
-      } else {
-        setErrorMsg('Failed to queue video for publishing.');
-      }
-    } catch (e) {
-      setErrorMsg('Error creating publish job.');
-    } finally {
-      setPipelineProcessing(null);
+  // Scheduled Upload Action
+  const handleScheduleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const selected = videos.filter((v) => selectedVideoIds.includes(v.id));
+    if (selected.length === 0) return;
+
+    if (user && user.credits < selected.length * 1000) {
+      setCreditModalOpen(true);
+      return;
     }
+
+    setPublishing(true);
+    let successCount = 0;
+
+    for (const vid of selected) {
+      try {
+        const res = await fetch('/api/jobs/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sourceVideoUrl: vid.video_url,
+            title: customTitle || vid.title,
+            visibility,
+            scheduleTime
+          })
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (json.newBalance !== undefined) updateUserCredits(json.newBalance);
+          successCount++;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setPublishing(false);
+    setIsScheduleModalOpen(false);
+    setSuccessMsg(`Successfully scheduled ${successCount} videos for YouTube Shorts publishing!`);
+    setTimeout(() => setSuccessMsg(null), 5000);
+    setSelectedVideoIds([]);
   };
 
   const formatCount = (n: number) => {
@@ -220,16 +301,16 @@ function TrendDiscoveryContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-display font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <Flame className="w-7 h-7 text-rose-500 animate-pulse" /> Live Profile Scraper & Video Player
+            <Flame className="w-7 h-7 text-rose-500 animate-pulse" /> Creator Trend Workflow Studio
           </h1>
           <p className="text-slate-400 text-xs md:text-sm">
-            Analyze TikTok, Instagram, or YouTube handles. Search costs <code className="text-amber-300 font-mono">500 credits</code>.
+            Scrape creator profiles, select videos, add to playlists, download MP4s, or publish directly to YouTube.
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs font-mono font-semibold bg-indigo-500/10 border border-indigo-500/30 px-3 py-1.5 rounded-xl text-indigo-300">
           <Zap className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-          <span>Cost per Search: 500 Credits</span>
+          <span>Search: 500 pts • Upload: 1,000 pts</span>
         </div>
       </div>
 
@@ -242,7 +323,7 @@ function TrendDiscoveryContent() {
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleScrapeProfile()}
-            placeholder="Enter creator handle (e.g. @wildtraillife) or paste video URL..."
+            placeholder="Enter creator handle (e.g. @aloocmpire) or paste TikTok/IG URL..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500"
           />
         </div>
@@ -260,55 +341,65 @@ function TrendDiscoveryContent() {
         </button>
       </div>
 
-      {/* Bulk Action Bar */}
+      {/* Multi-Select Action Workflow Bar */}
       {videos.length > 0 && (
-        <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSelectAll}
-              className="flex items-center gap-2 font-semibold text-slate-300 hover:text-white"
-            >
-              {selectedVideoIds.length === videos.length ? (
-                <CheckSquare className="w-4 h-4 text-indigo-400" />
-              ) : (
-                <Square className="w-4 h-4 text-slate-500" />
-              )}
-              <span>Select All ({selectedVideoIds.length}/{videos.length})</span>
-            </button>
-          </div>
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xl">
+          <button
+            onClick={toggleSelectAll}
+            className="flex items-center gap-2 font-bold text-white hover:text-indigo-300 transition-colors"
+          >
+            {selectedVideoIds.length === videos.length ? (
+              <CheckSquare className="w-5 h-5 text-indigo-400" />
+            ) : (
+              <Square className="w-5 h-5 text-slate-500" />
+            )}
+            <span>Select All ({selectedVideoIds.length}/{videos.length} selected)</span>
+          </button>
 
           {selectedVideoIds.length > 0 && (
-            <div className="flex items-center gap-2 animate-in fade-in">
+            <div className="flex flex-wrap items-center gap-2 animate-in fade-in">
               <button
                 onClick={() => setIsPlaylistModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-1.5 shadow-md"
               >
-                <FolderPlus className="w-3.5 h-3.5" /> Save to Playlist
+                <FolderPlus className="w-4 h-4" /> Save to Playlist
+              </button>
+              <button
+                onClick={handleInstantPublishSelected}
+                disabled={publishing}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:opacity-95 text-white font-semibold flex items-center gap-1.5 shadow-glow"
+              >
+                <Send className="w-4 h-4" /> Publish Instantly
+              </button>
+              <button
+                onClick={() => setIsScheduleModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold flex items-center gap-1.5 shadow-md"
+              >
+                <Calendar className="w-4 h-4" /> Schedule Upload
               </button>
               <button
                 onClick={handleBulkDownload}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold flex items-center gap-1.5 border border-slate-700"
               >
-                <Download className="w-3.5 h-3.5" /> Download Selected
+                <Download className="w-4 h-4 text-emerald-400" /> Download MP4 Files
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* Error Banner */}
+      {/* Error & Success Banners */}
       {errorMsg && (
-        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-medium flex items-start gap-2">
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-medium flex items-center gap-2">
           <span>⚠️ {errorMsg}</span>
         </div>
       )}
 
-      {/* Pipeline Success Banner */}
-      {pipelineSuccess && (
+      {successMsg && (
         <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between animate-in zoom-in-95">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-400" />
-            <span>Video queued for YouTube publishing!</span>
+            <span>{successMsg}</span>
           </div>
           <a href="/publishing" className="text-white underline font-mono text-[11px]">View Queue →</a>
         </div>
@@ -322,7 +413,7 @@ function TrendDiscoveryContent() {
           </div>
           <h3 className="text-base font-bold text-white">Paste a profile to start scraping</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Enter a TikTok handle like <code className="text-indigo-300">@wildtraillife</code> above and click <strong>Scrape & Analyze Profile</strong>.
+            Enter a creator handle like <code className="text-indigo-300">@aloocmpire</code> above to extract video metrics and run creator workflows.
           </p>
         </div>
       )}
@@ -336,7 +427,7 @@ function TrendDiscoveryContent() {
               <div
                 key={vid.id}
                 className={`rounded-2xl bg-slate-900/60 border transition-all overflow-hidden flex flex-col justify-between group ${
-                  isSelected ? 'border-indigo-500 shadow-glow' : 'border-slate-800 hover:border-slate-700'
+                  isSelected ? 'border-indigo-500 shadow-glow ring-2 ring-indigo-500/50' : 'border-slate-800 hover:border-slate-700'
                 }`}
               >
                 {/* Thumbnail */}
@@ -389,7 +480,7 @@ function TrendDiscoveryContent() {
                   </div>
                 </div>
 
-                {/* Footer */}
+                {/* Footer Controls */}
                 <div className="p-4 space-y-3 bg-slate-900/80">
                   <div className="flex items-center justify-between text-xs text-slate-400">
                     <div className="flex items-center gap-2">
@@ -406,19 +497,23 @@ function TrendDiscoveryContent() {
                     <span className="font-mono text-emerald-400 font-semibold">{vid.engagement_rate}% ER</span>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-800">
+                  <div className="pt-2 border-t border-slate-800 flex gap-2">
                     <button
-                      onClick={() => handlePublishToYouTube(vid.id, vid.video_url, vid.title)}
-                      disabled={pipelineProcessing === vid.id}
-                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:opacity-95 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-glow transition-all disabled:opacity-50"
+                      onClick={() => {
+                        setSelectedVideoIds([vid.id]);
+                        setIsScheduleModalOpen(true);
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      {pipelineProcessing === vid.id ? (
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <Youtube className="w-4 h-4 fill-white" />
-                      )}
-                      <span>Push & Upload (-1,000 pts)</span>
+                      <Calendar className="w-3.5 h-3.5" /> Schedule
                     </button>
+                    <a
+                      href={`/api/download?url=${encodeURIComponent(vid.video_url)}`}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition-colors"
+                      title="Direct MP4 Video Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
                   </div>
                 </div>
               </div>
@@ -446,20 +541,15 @@ function TrendDiscoveryContent() {
                 controls
                 autoPlay
                 className="w-full h-full object-contain"
-                onError={(e) => {
-                  console.error('Video player load fallback error');
-                }}
               />
             </div>
             <div className="p-4 bg-slate-950 flex items-center justify-between text-xs text-slate-300">
               <span>Author: {activePreviewVideo.author_handle}</span>
               <a
-                href={activePreviewVideo.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-400 hover:underline"
+                href={`/api/download?url=${encodeURIComponent(activePreviewVideo.video_url)}`}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5"
               >
-                Open Original Link ↗
+                <Download className="w-3.5 h-3.5" /> Download MP4
               </a>
             </div>
           </div>
@@ -508,7 +598,7 @@ function TrendDiscoveryContent() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. Viral Wildlife Shorts 2026"
+                  placeholder="e.g. Viral Shorts Series 2026"
                   value={newPlaylistName}
                   onChange={(e) => setNewPlaylistName(e.target.value)}
                   className="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
@@ -521,6 +611,80 @@ function TrendDiscoveryContent() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Upload Modal */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 max-w-md w-full space-y-4 shadow-glass animate-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-purple-400" /> Schedule {selectedVideoIds.length} YouTube Shorts
+              </h3>
+              <button onClick={() => setIsScheduleModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleScheduleUploadSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-400 mb-1 block">Publish Date & Time</label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 mb-1 block">Custom Title (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Leave empty to use original video title"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 mb-1 block">Visibility</label>
+                <select
+                  value={visibility}
+                  onChange={(e) => setVisibility(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                >
+                  <option value="public">Public</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+
+              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[11px]">
+                ⚡ Cost: {selectedVideoIds.length * 1000} credits ({selectedVideoIds.length} videos × 1,000 pts)
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsScheduleModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={publishing}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold flex items-center justify-center gap-1.5"
+                >
+                  {publishing ? 'Scheduling...' : 'Confirm Schedule'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
