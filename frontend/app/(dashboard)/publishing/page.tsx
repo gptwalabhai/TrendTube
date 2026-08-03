@@ -22,7 +22,7 @@ interface JobItem {
   id: string;
   title: string;
   source_url: string;
-  status: 'Pending' | 'Queued' | 'Downloading' | 'Generating Metadata' | 'Uploading' | 'Completed' | 'Failed' | 'Retrying' | 'Cancelled';
+  status: 'Pending' | 'Queued' | 'Downloading' | 'Generating Metadata' | 'Uploading' | 'Completed' | 'Failed' | 'Retrying' | 'Cancelled' | 'Scheduled';
   progress: number;
   youtube_video_id?: string;
   retry_count: number;
@@ -37,14 +37,9 @@ export default function YouTubePublishingPage() {
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
   const fetchJobs = async () => {
-    setLoading(true);
     try {
-      const res = await fetch('/api/jobs/create');
+      const res = await fetch('/api/jobs');
       if (res.ok) {
         const data = await res.json();
         if (data.jobs && Array.isArray(data.jobs)) {
@@ -52,11 +47,20 @@ export default function YouTubePublishingPage() {
         }
       }
     } catch (e) {
-      console.log('No jobs loaded from server');
+      console.log('Error fetching jobs:', e);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setLoading(true);
+    fetchJobs();
+
+    // Auto-poll jobs stream every 5 seconds
+    const interval = setInterval(fetchJobs, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCreateJob = async () => {
     if (!sourceUrl.trim()) return;
@@ -70,29 +74,10 @@ export default function YouTubePublishingPage() {
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        const newJob: JobItem = {
-          id: data.job.id,
-          title: customTitle || 'New Viral Short Upload',
-          source_url: sourceUrl,
-          status: 'Queued',
-          progress: 10,
-          retry_count: 0,
-          created_at: new Date().toISOString()
-        };
-        setJobs([newJob, ...jobs]);
+        fetchJobs();
       }
     } catch (e) {
-      const newJob: JobItem = {
-        id: `job-${Date.now()}`,
-        title: customTitle || 'New Viral Short Upload',
-        source_url: sourceUrl,
-        status: 'Queued',
-        progress: 10,
-        retry_count: 0,
-        created_at: new Date().toISOString()
-      };
-      setJobs([newJob, ...jobs]);
+      console.error('Create job error:', e);
     } finally {
       setShowCreateModal(false);
       setSourceUrl('');
@@ -108,11 +93,13 @@ export default function YouTubePublishingPage() {
       case 'Downloading':
       case 'Generating Metadata':
         return <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono text-[11px] font-bold flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" /> {status}</span>;
+      case 'Scheduled':
+        return <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 font-mono text-[11px] font-bold flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-purple-400" /> Scheduled</span>;
       case 'Queued':
       case 'Pending':
         return <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono text-[11px] font-bold flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {status}</span>;
       case 'Retrying':
-        return <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 font-mono text-[11px] font-bold flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5" /> Retrying (Max 3)</span>;
+        return <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 font-mono text-[11px] font-bold flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5" /> Retrying</span>;
       case 'Failed':
         return <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono text-[11px] font-bold flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" /> Failed</span>;
       default:
@@ -126,7 +113,7 @@ export default function YouTubePublishingPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-display font-extrabold text-white tracking-tight flex items-center gap-2.5">
-            <Youtube className="w-8 h-8 text-red-500" /> Cloudflare Queue Upload System
+            <Youtube className="w-8 h-8 text-red-500" /> Cloudflare Queue Upload Stream
           </h1>
           <p className="text-slate-400 text-xs md:text-sm">
             Powered by Cloudflare Workers & Cloudflare Queues. Heavy processing runs off-main-thread with zero Vercel timeout limits.
@@ -134,9 +121,13 @@ export default function YouTubePublishingPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold">
-            <Server className="w-4 h-4 text-indigo-400" /> Cloudflare Worker Consumer Active
-          </div>
+          <button
+            onClick={fetchJobs}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold text-white hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Sync Queue
+          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-glow transition-all"
@@ -162,9 +153,9 @@ export default function YouTubePublishingPage() {
       <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-400" /> Cloudflare Queue Job Stream
+            <Layers className="w-4 h-4 text-indigo-400" /> Active Cloudflare Queue Stream
           </h3>
-          <span className="text-xs text-slate-500 font-mono">{jobs.length} Active Jobs</span>
+          <span className="text-xs text-slate-400 font-mono font-bold">{jobs.length} Active Jobs</span>
         </div>
 
         {jobs.length === 0 ? (
@@ -174,7 +165,7 @@ export default function YouTubePublishingPage() {
             </div>
             <h4 className="text-sm font-bold text-white">No active upload jobs in Cloudflare Queue</h4>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Push a video URL to the Cloudflare Queue to start automated downloading, Gemini AI metadata generation, and YouTube publishing.
+              Push a video URL from Trend Discovery or click Create First Upload Job below.
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -231,7 +222,7 @@ export default function YouTubePublishingPage() {
                           <ExternalLink className="w-3 h-3" /> YouTube Video
                         </a>
                       ) : (
-                        <span className="text-slate-500 font-mono text-[10px]">Processing...</span>
+                        <span className="text-slate-500 font-mono text-[10px]">In Queue</span>
                       )}
                     </td>
                   </tr>
@@ -263,7 +254,7 @@ export default function YouTubePublishingPage() {
               </div>
 
               <div>
-                <label className="text-slate-400 mb-1 block font-semibold">Custom Title (Optional - AI Generates if Empty)</label>
+                <label className="text-slate-400 mb-1 block font-semibold font-sans">Custom Title (Optional - AI Generates if Empty)</label>
                 <input
                   type="text"
                   value={customTitle}
