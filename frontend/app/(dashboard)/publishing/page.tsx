@@ -16,7 +16,8 @@ import {
   Layers,
   ArrowRight,
   Inbox,
-  Link2
+  Link2,
+  RotateCcw
 } from 'lucide-react';
 
 interface JobItem {
@@ -38,6 +39,7 @@ export default function YouTubePublishingPage() {
 
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const fetchJobs = async () => {
     try {
@@ -62,6 +64,24 @@ export default function YouTubePublishingPage() {
     const interval = setInterval(fetchJobs, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleRetryJob = async (jobId: string) => {
+    setRetryingId(jobId);
+    try {
+      const res = await fetch('/api/jobs/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId })
+      });
+      if (res.ok) {
+        await fetchJobs();
+      }
+    } catch (e) {
+      console.error('Retry error:', e);
+    } finally {
+      setRetryingId(null);
+    }
+  };
 
   const handleCreateJob = async () => {
     if (!sourceUrl.trim()) return;
@@ -213,12 +233,22 @@ export default function YouTubePublishingPage() {
                           <ExternalLink className="w-3 h-3" /> YouTube Video
                         </a>
                       ) : item.status === 'Failed' ? (
-                        <a
-                          href="/accounts"
-                          className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold hover:bg-rose-500/30 inline-flex items-center gap-1"
-                        >
-                          Connect Channel
-                        </a>
+                        item.failure_reason?.includes('No connected YouTube channel') ? (
+                          <a
+                            href="/accounts"
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold hover:bg-rose-500/30 inline-flex items-center gap-1"
+                          >
+                            <Link2 className="w-3 h-3" /> Connect Channel
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleRetryJob(item.id)}
+                            disabled={retryingId === item.id}
+                            className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-glow disabled:opacity-50"
+                          >
+                            <RotateCcw className={`w-3.5 h-3.5 ${retryingId === item.id ? 'animate-spin' : ''}`} /> Retry Upload
+                          </button>
+                        )
                       ) : (
                         <span className="text-slate-500 font-mono text-[10px]">Processing...</span>
                       )}
