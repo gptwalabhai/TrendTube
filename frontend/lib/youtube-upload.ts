@@ -2,7 +2,8 @@ import { query } from './db';
 import { decryptToken, encryptToken } from './auth';
 
 /**
- * Perform real upload to Google YouTube Data API v3 for a given user
+ * Upload Video to YouTube Data API v3 using Google's Official Resumable Upload Protocol.
+ * Prevents video corruption, frame loss, and "Processing abandoned" YouTube Studio errors.
  */
 export async function uploadVideoToYouTube(
   userId: string,
@@ -72,7 +73,7 @@ export async function uploadVideoToYouTube(
       };
     }
 
-    // 2. Fetch video binary from source URL
+    // 2. Fetch video binary from source URL or clean MP4 CDN
     const fallbackMp4 = 'https://cdn.pixabay.com/video/2021/04/12/70884-536965440_large.mp4';
     let videoStreamUrl = sourceVideoUrl;
     if (sourceVideoUrl.includes('mixkit.co') || sourceVideoUrl.includes('AccessDenied')) {
@@ -85,8 +86,13 @@ export async function uploadVideoToYouTube(
     }
 
     const videoBuffer = await videoRes.arrayBuffer();
+    const videoByteLength = videoBuffer.byteLength;
 
-    // 3. Construct YouTube API v3 multipart upload request
+    if (videoByteLength === 0) {
+      return { success: false, error: 'Video file buffer is empty (0 bytes).' };
+    }
+
+    // 3. STEP 1: Initiate Resumable Upload Session with Google YouTube API
     const metadata = {
       snippet: {
         title: title || 'Viral YouTube Short',
@@ -99,61 +105,59 @@ export async function uploadVideoToYouTube(
       }
     };
 
-    const boundary = '---------------------------' + Date.now().toString(16);
-    const metadataPart =
-      `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${JSON.stringify(metadata)}\r\n`;
-
-    const mediaPartHeader =
-      `--${boundary}\r\n` +
-      `Content-Type: video/mp4\r\n\r\n`;
-
-    const closeBoundary = `\r\n--${boundary}--`;
-
-    const uint8Metadata = new TextEncoder().encode(metadataPart);
-    const uint8MediaHeader = new TextEncoder().encode(mediaPartHeader);
-    const uint8Media = new Uint8Array(videoBuffer);
-    const uint8Close = new TextEncoder().encode(closeBoundary);
-
-    const totalLength = uint8Metadata.length + uint8MediaHeader.length + uint8Media.length + uint8Close.length;
-    const bodyBuffer = new Uint8Array(totalLength);
-
-    bodyBuffer.set(uint8Metadata, 0);
-    bodyBuffer.set(uint8MediaHeader, uint8Metadata.length);
-    bodyBuffer.set(uint8Media, uint8Metadata.length + uint8MediaHeader.length);
-    bodyBuffer.set(uint8Close, uint8Metadata.length + uint8MediaHeader.length + uint8Media.length);
-
-    const uploadRes = await fetch(
-      'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status',
+    const initRes = await fetch(
+      'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
       {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Upload-Content-Length': String(videoByteLength),
+          'X-Upload-Content-Type': 'video/mp4'
         },
-        body: bodyBuffer
+        body: JSON.stringify(metadata)
       }
     );
 
+    if (!initRes.ok) {
+      const initErr = await initRes.text();
+      console.error('[YouTube Resumable Init Error]:', initErr);
+      return { success: false, error: `YouTube API Init Failed: ${initErr.substring(0, 150)}` };
+    }
+
+    const uploadLocationUrl = initRes.headers.get('Location') || initRes.headers.get('location');
+    if (!uploadLocationUrl) {
+      return { success: false, error: 'YouTube API did not return upload session Location header.' };
+    }
+
+    // 4. STEP 2: Upload Raw MP4 Binary Buffer directly to Session Location URL
+    const uploadRes = await fetch(uploadLocationUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'video/mp4',
+        'Content-Length': String(videoByteLength)
+      },
+      body: videoBuffer
+    });
+
     if (uploadRes.ok) {
       const uploadData = await uploadRes.json();
-      console.log(`[YouTube API Success] Video published to YouTube channel "${acc.account_name}": ID ${uploadData.id}`);
+      console.log(`[YouTube Resumable Upload Success] Channel "${acc.account_name}": Real Video ID ${uploadData.id}`);
       return {
         success: true,
         youtubeVideoId: uploadData.id
       };
     } else {
       const errText = await uploadRes.text();
-      console.error('[YouTube API Upload Error]:', errText);
+      console.error('[YouTube Binary Upload Error]:', errText);
       return {
         success: false,
-        error: `YouTube Upload Failed: ${errText.substring(0, 150)}`
+        error: `YouTube Video Upload Error: ${errText.substring(0, 150)}`
       };
     }
 
   } catch (err: any) {
-    console.error('uploadVideoToYouTube exception:', err);
+    console.error('uploadVideoToYouTube Exception:', err);
     return { success: false, error: err.message || 'YouTube upload execution error' };
   }
 }
