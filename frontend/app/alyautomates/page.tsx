@@ -19,7 +19,8 @@ import {
   Ban,
   KeyRound,
   Youtube,
-  DollarSign
+  DollarSign,
+  ArrowRight
 } from 'lucide-react';
 
 interface PlatformUser {
@@ -48,7 +49,7 @@ interface AdminStats {
 }
 
 export default function ExecutiveAdminPanelPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, login, loading: authLoading, refreshUser } = useAuth();
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [searchLogs, setSearchLogs] = useState<any[]>([]);
@@ -58,7 +59,13 @@ export default function ExecutiveAdminPanelPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'logs'>('users');
 
-  // Form states
+  // Inline Admin Login Form state for /alyautomates
+  const [adminLoginEmail, setAdminLoginEmail] = useState('gptwalabhai@gmail.com');
+  const [adminLoginPassword, setAdminLoginPassword] = useState('');
+  const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+
+  // User provision form state
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
@@ -104,25 +111,97 @@ export default function ExecutiveAdminPanelPage() {
     }
   }, [user]);
 
-  // Strict Server-Side / Role Check Guard
+  const handleAdminDirectLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminLoginError(null);
+    setAdminSubmitting(true);
+
+    try {
+      const res = await login({ email: adminLoginEmail, password: adminLoginPassword });
+      if (res.success) {
+        await refreshUser();
+      } else {
+        setAdminLoginError(res.error || 'Invalid Admin Credentials');
+      }
+    } catch (err: any) {
+      setAdminLoginError(err.message || 'Login failed');
+    } finally {
+      setAdminSubmitting(false);
+    }
+  };
+
+  // Auth Loading
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#090a0f] flex items-center justify-center text-slate-400 text-sm">
-        <RefreshCw className="w-5 h-5 animate-spin mr-2 text-amber-400" /> Verifying Admin Credentials...
+        <RefreshCw className="w-5 h-5 animate-spin mr-2 text-amber-400" /> Verifying Executive Admin Credentials...
       </div>
     );
   }
 
+  // Render Executive Admin Login Portal when visiting /alyautomates unauthenticated or as non-admin
   if (!user || user.role !== 'admin') {
     return (
-      <div className="min-h-screen bg-[#090a0f] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-        <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4 shadow-glow">
-          <Lock className="w-8 h-8" />
+      <div className="min-h-screen bg-[#090a0f] flex items-center justify-center p-4">
+        <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl space-y-6 backdrop-blur-xl animate-in zoom-in-95">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500/20 to-indigo-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-glow">
+              <ShieldCheck className="w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-black text-white tracking-tight">Executive Admin Portal</h1>
+            <p className="text-xs text-amber-300/80 font-mono">/alyautomates</p>
+            <p className="text-xs text-slate-400">
+              Restricted portal. Authenticate with master admin credentials to unlock system control.
+            </p>
+          </div>
+
+          {adminLoginError && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold text-center">
+              ⚠️ {adminLoginError}
+            </div>
+          )}
+
+          <form onSubmit={handleAdminDirectLogin} className="space-y-4">
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block font-semibold">Admin Email</label>
+              <input
+                type="email"
+                required
+                value={adminLoginEmail}
+                onChange={(e) => setAdminLoginEmail(e.target.value)}
+                placeholder="admin@trendtube.ai"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block font-semibold">Admin Master Password</label>
+              <input
+                type="password"
+                required
+                value={adminLoginPassword}
+                onChange={(e) => setAdminLoginPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={adminSubmitting}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:opacity-95 text-white text-sm font-bold shadow-glow transition-all flex items-center justify-center gap-2"
+            >
+              {adminSubmitting ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <span>Authenticate & Unlock Admin Panel</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-2">403 — Unauthorized Access</h1>
-        <p className="text-sm text-slate-400 max-w-md">
-          The Executive Control Center at <code className="text-amber-300 font-mono">/alyautomates</code> is restricted exclusively to authorized administrators.
-        </p>
       </div>
     );
   }
