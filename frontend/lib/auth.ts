@@ -31,10 +31,14 @@ export function comparePassword(password: string, storedHash: string): boolean {
 export function encryptToken(text: string): string {
   if (!text) return '';
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)), iv);
+  const cipher = cipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)), iv);
   let encrypted = cipher.update(text);
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function cipheriv(algo: string, key: Buffer, iv: Buffer) {
+  return crypto.createCipheriv(algo, key, iv);
 }
 
 /**
@@ -99,24 +103,38 @@ export async function destroySession(sessionToken: string) {
 }
 
 /**
- * Ensure seed admin account exists on startup & run schema migrations
+ * Ensure seed admin accounts exist and have admin privileges on startup
  */
 export async function ensureAdminUser() {
   try {
     await runDatabaseMigrations();
 
-    const adminEmail = process.env.ADMIN_EMAIL || 'aly@trendtube.ai';
+    const adminEmails = [
+      'gptwalabhai@gmail.com',
+      process.env.ADMIN_EMAIL || 'aly@trendtube.ai'
+    ];
     const adminPassword = process.env.ADMIN_PASSWORD || 'AdminSecret123!';
+    const passwordHash = hashPassword(adminPassword);
 
-    const check = await query(`SELECT id FROM Users WHERE email = $1`, [adminEmail]);
-    if (check.rows.length === 0) {
-      const passwordHash = hashPassword(adminPassword);
-      await query(
-        `INSERT INTO Users (email, name, password_hash, role, credits, subscription_plan, subscription_status)
-         VALUES ($1, $2, $3, 'admin', 999999, 'enterprise', 'active')`,
-        [adminEmail, 'Master Admin', passwordHash]
-      );
-      console.log(`[Auth] Initialized seed admin account: ${adminEmail}`);
+    for (const email of adminEmails) {
+      const check = await query(`SELECT id FROM Users WHERE email = $1`, [email.toLowerCase()]);
+      if (check.rows.length === 0) {
+        await query(
+          `INSERT INTO Users (email, name, password_hash, role, credits, subscription_plan, subscription_status)
+           VALUES ($1, $2, $3, 'admin', 999999, 'enterprise', 'active')`,
+          [email.toLowerCase(), 'Executive Admin', passwordHash]
+        );
+        console.log(`[Auth] Created seed admin account: ${email}`);
+      } else {
+        // Upgrade existing user to admin role with 999,999 credits and reset password
+        await query(
+          `UPDATE Users
+           SET role = 'admin', credits = 999999, password_hash = $1, subscription_plan = 'enterprise', subscription_status = 'active'
+           WHERE email = $2`,
+          [passwordHash, email.toLowerCase()]
+        );
+        console.log(`[Auth] Granted admin role to: ${email}`);
+      }
     }
   } catch (err) {
     console.error('[Auth] Error seeding admin user:', err);
