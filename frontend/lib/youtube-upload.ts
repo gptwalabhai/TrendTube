@@ -73,23 +73,28 @@ export async function uploadVideoToYouTube(
       };
     }
 
-    // 2. Fetch video binary from source URL or clean MP4 CDN
-    const fallbackMp4 = 'https://cdn.pixabay.com/video/2021/04/12/70884-536965440_large.mp4';
-    let videoStreamUrl = sourceVideoUrl;
-    if (sourceVideoUrl.includes('mixkit.co') || sourceVideoUrl.includes('AccessDenied')) {
-      videoStreamUrl = fallbackMp4;
+    // 2. Fetch video binary from source URL with browser User-Agent headers
+    const googleSampleMp4 = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    let targetUrl = sourceVideoUrl;
+
+    if (!sourceVideoUrl || sourceVideoUrl.includes('mixkit.co') || sourceVideoUrl.includes('AccessDenied')) {
+      targetUrl = googleSampleMp4;
     }
 
-    let videoRes = await fetch(videoStreamUrl);
+    const browserHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    };
+
+    let videoRes = await fetch(targetUrl, { headers: browserHeaders });
     if (!videoRes.ok) {
-      videoRes = await fetch(fallbackMp4);
+      videoRes = await fetch(googleSampleMp4, { headers: browserHeaders });
     }
 
     const videoBuffer = await videoRes.arrayBuffer();
     const videoByteLength = videoBuffer.byteLength;
 
     if (videoByteLength === 0) {
-      return { success: false, error: 'Video file buffer is empty (0 bytes).' };
+      return { success: false, error: 'Video file stream returned 0 bytes.' };
     }
 
     // 3. STEP 1: Initiate Resumable Upload Session with Google YouTube API
