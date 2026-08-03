@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -47,6 +47,167 @@ interface VideoItem {
   outlier_score: number;
   growth_velocity: number;
   engagement_rate: number;
+}
+
+/**
+ * TikTok 9:16 Vertical Video Card Component
+ * Supports Hover Auto-Play Preview Video + TikTok Overlay Badges & View Counts
+ */
+function TikTokVideoCard({
+  vid,
+  isSelected,
+  onToggleSelect,
+  onOpenPreview,
+  onSchedule,
+  formatCount
+}: {
+  vid: VideoItem;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onOpenPreview: (vid: VideoItem) => void;
+  onSchedule: (vid: VideoItem) => void;
+  formatCount: (n: number) => string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+  };
+
+  return (
+    <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`relative rounded-2xl bg-slate-950 border transition-all duration-300 overflow-hidden flex flex-col justify-between group shadow-xl hover:shadow-2xl hover:scale-[1.02] ${
+        isSelected ? 'border-indigo-500 shadow-glow ring-2 ring-indigo-500/50' : 'border-slate-800/80 hover:border-indigo-500/50'
+      }`}
+    >
+      {/* 9:16 TikTok Vertical Video Aspect Container */}
+      <div className="relative aspect-[9/16] bg-slate-950 overflow-hidden cursor-pointer">
+        {/* Cover Thumbnail Image */}
+        <img
+          src={vid.thumbnail_url}
+          alt={vid.title}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            isHovered ? 'opacity-0' : 'opacity-100'
+          }`}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${vid.id}/540/960`;
+          }}
+        />
+
+        {/* Hover Auto-Play MP4 Video Element */}
+        <video
+          ref={videoRef}
+          src={vid.video_url}
+          muted
+          loop
+          playsInline
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+            isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        />
+
+        {/* Dark Gradient Overlay for Clean Text Visibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/40 pointer-events-none"></div>
+
+        {/* Top Badges & Select Checkbox */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect(vid.id);
+              }}
+              className={`p-1.5 rounded-lg border backdrop-blur-md transition-all ${
+                isSelected
+                  ? 'bg-indigo-600 border-indigo-400 text-white'
+                  : 'bg-black/60 border-white/20 text-slate-300 hover:text-white'
+              }`}
+            >
+              {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+            </button>
+
+            {vid.virality_score > 75 && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white shadow-glow flex items-center gap-1">
+                Pinned
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenPreview(vid);
+            }}
+            className="p-1.5 rounded-full bg-black/60 border border-white/20 hover:bg-rose-600 text-white backdrop-blur-md transition-all"
+            title="Expand Fullscreen Video"
+          >
+            <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
+          </button>
+        </div>
+
+        {/* Bottom Overlay Metrics matching Screenshot */}
+        <div className="absolute bottom-3 left-3 right-3 space-y-1 z-10 pointer-events-none">
+          <div className="flex items-center gap-2">
+            <span className="text-white text-xs font-black font-mono flex items-center gap-1 drop-shadow-md">
+              <Play className="w-3 h-3 fill-white" /> {formatCount(vid.views_count)}
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+              {vid.outlier_score}x Outlier
+            </span>
+          </div>
+
+          <p className="text-xs font-semibold text-white/95 line-clamp-2 leading-snug drop-shadow-md">
+            {vid.title || vid.caption}
+          </p>
+        </div>
+      </div>
+
+      {/* Footer Quick Action Bar */}
+      <div className="p-3 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 truncate">
+          <img
+            src={vid.author_avatar}
+            className="w-5 h-5 rounded-full border border-slate-700"
+            alt=""
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${vid.author_handle}`;
+            }}
+          />
+          <span className="font-semibold text-slate-300 text-[11px] truncate">@{vid.author_handle}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onSchedule(vid)}
+            className="px-2.5 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 text-[11px] font-semibold flex items-center gap-1"
+          >
+            <Calendar className="w-3 h-3" /> Schedule
+          </button>
+          <a
+            href={`/api/download?url=${encodeURIComponent(vid.video_url)}`}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition-colors"
+            title="Download MP4"
+          >
+            <Download className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TrendDiscoveryContent() {
@@ -291,7 +452,7 @@ function TrendDiscoveryContent() {
 
   const formatCount = (n: number) => {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
     return String(n);
   };
 
@@ -304,7 +465,7 @@ function TrendDiscoveryContent() {
             <Flame className="w-7 h-7 text-rose-500 animate-pulse" /> Creator Trend Workflow Studio
           </h1>
           <p className="text-slate-400 text-xs md:text-sm">
-            Scrape creator profiles, select videos, add to playlists, download MP4s, or publish directly to YouTube.
+            Hover over video cards for instant video previews. Scrape creator profiles, save to playlists, and publish to YouTube.
           </p>
         </div>
 
@@ -418,107 +579,23 @@ function TrendDiscoveryContent() {
         </div>
       )}
 
-      {/* Videos Grid */}
+      {/* TikTok 9:16 Vertical Videos Grid */}
       {videos.length > 0 && !loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {videos.map((vid) => {
-            const isSelected = selectedVideoIds.includes(vid.id);
-            return (
-              <div
-                key={vid.id}
-                className={`rounded-2xl bg-slate-900/60 border transition-all overflow-hidden flex flex-col justify-between group ${
-                  isSelected ? 'border-indigo-500 shadow-glow ring-2 ring-indigo-500/50' : 'border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                {/* Thumbnail */}
-                <div className="relative aspect-[4/5] bg-slate-950 overflow-hidden">
-                  <img
-                    src={vid.thumbnail_url}
-                    alt={vid.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${vid.id}/600/800`;
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
-
-                  {/* Top Select & Play Controls */}
-                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                    <button
-                      onClick={() => toggleSelectVideo(vid.id)}
-                      className={`p-1.5 rounded-lg border backdrop-blur-md transition-all ${
-                        isSelected
-                          ? 'bg-indigo-600 border-indigo-400 text-white'
-                          : 'bg-black/60 border-white/20 text-slate-300 hover:text-white'
-                      }`}
-                    >
-                      {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                    </button>
-
-                    <button
-                      onClick={() => setActivePreviewVideo(vid)}
-                      className="p-2 rounded-full bg-rose-600/90 hover:bg-rose-500 text-white shadow-glow transition-all"
-                      title="Play Preview Video"
-                    >
-                      <Play className="w-4 h-4 fill-white ml-0.5" />
-                    </button>
-                  </div>
-
-                  {/* Bottom info */}
-                  <div className="absolute bottom-3 left-3 right-3 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        {vid.outlier_score}x Outlier
-                      </span>
-                      <span className="text-[11px] text-slate-300 font-mono">
-                        {formatCount(vid.views_count)} views
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-bold text-white line-clamp-2 leading-snug">
-                      {vid.title}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Footer Controls */}
-                <div className="p-4 space-y-3 bg-slate-900/80">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={vid.author_avatar}
-                        className="w-5 h-5 rounded-full"
-                        alt=""
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${vid.author_handle}`;
-                        }}
-                      />
-                      <span className="font-medium text-slate-300">{vid.author_handle}</span>
-                    </div>
-                    <span className="font-mono text-emerald-400 font-semibold">{vid.engagement_rate}% ER</span>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-800 flex gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedVideoIds([vid.id]);
-                        setIsScheduleModalOpen(true);
-                      }}
-                      className="flex-1 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <Calendar className="w-3.5 h-3.5" /> Schedule
-                    </button>
-                    <a
-                      href={`/api/download?url=${encodeURIComponent(vid.video_url)}`}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition-colors"
-                      title="Direct MP4 Video Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {videos.map((vid) => (
+            <TikTokVideoCard
+              key={vid.id}
+              vid={vid}
+              isSelected={selectedVideoIds.includes(vid.id)}
+              onToggleSelect={toggleSelectVideo}
+              onOpenPreview={(v) => setActivePreviewVideo(v)}
+              onSchedule={(v) => {
+                setSelectedVideoIds([v.id]);
+                setIsScheduleModalOpen(true);
+              }}
+              formatCount={formatCount}
+            />
+          ))}
         </div>
       )}
 
