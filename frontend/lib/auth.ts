@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { query } from './db';
+import { runDatabaseMigrations } from './migrate';
 
 const ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY || 'trendtube_secret_key_32bytes_len_123';
 const IV_LENGTH = 16;
@@ -75,6 +76,7 @@ export async function createSession(userId: string): Promise<string> {
  */
 export async function getSessionUser(sessionToken: string) {
   if (!sessionToken) return null;
+  await runDatabaseMigrations();
 
   const result = await query(
     `SELECT u.id, u.name, u.email, u.role, u.credits, u.subscription_plan, u.subscription_status, u.uploads_count, u.searches_count, u.is_banned, u.created_at
@@ -97,10 +99,12 @@ export async function destroySession(sessionToken: string) {
 }
 
 /**
- * Ensure seed admin account exists on startup
+ * Ensure seed admin account exists on startup & run schema migrations
  */
 export async function ensureAdminUser() {
   try {
+    await runDatabaseMigrations();
+
     const adminEmail = process.env.ADMIN_EMAIL || 'aly@trendtube.ai';
     const adminPassword = process.env.ADMIN_PASSWORD || 'AdminSecret123!';
 

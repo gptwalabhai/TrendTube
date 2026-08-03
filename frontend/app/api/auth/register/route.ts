@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { hashPassword, createSession, SESSION_COOKIE_NAME, ensureAdminUser } from '@/lib/auth';
+import { runDatabaseMigrations } from '@/lib/migrate';
 import { INITIAL_USER_CREDITS } from '@/lib/credits';
 
 export async function POST(request: Request) {
   try {
-    await ensureAdminUser(); // Ensure seed admin account exists
+    // Run database migrations to ensure password_hash and all columns exist on Neon PostgreSQL
+    await runDatabaseMigrations();
+    await ensureAdminUser();
 
     const body = await request.json();
     const { name, email, password } = body;
