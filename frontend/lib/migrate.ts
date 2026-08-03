@@ -124,6 +124,7 @@ export async function runDatabaseMigrations() {
     await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS failure_reason TEXT;`);
     await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;`);
     await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;`);
+    await query(`ALTER TABLE UploadJobs ADD COLUMN IF NOT EXISTS retry_count INT NOT NULL DEFAULT 0;`);
 
     // 8. Playlists Table
     await query(`

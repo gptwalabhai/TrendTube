@@ -57,11 +57,26 @@ export default function YouTubePublishingPage() {
     }
   };
 
+  // Auto-trigger the job processor in the background (fire-and-forget)
+  // This makes everything fully automatic — no manual Retry clicks needed
+  const triggerProcessor = async () => {
+    try {
+      await fetch('/api/jobs/process', { method: 'POST' });
+    } catch (e) {
+      // Silently ignore — processor errors don't affect UI
+    }
+  };
+
   useEffect(() => {
     setLoading(true);
     fetchJobs();
+    triggerProcessor(); // Kick off immediately on page load
 
-    const interval = setInterval(fetchJobs, 5000);
+    // Poll every 15s: refresh job list AND trigger processor
+    const interval = setInterval(async () => {
+      await fetchJobs();
+      triggerProcessor(); // Auto-process without user clicking anything
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -240,14 +255,14 @@ export default function YouTubePublishingPage() {
                           >
                             <Link2 className="w-3 h-3" /> Connect Channel
                           </a>
+                        ) : item.failure_reason?.includes('exceeded the number of videos') ? (
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-semibold inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Auto-retry in 24h
+                          </span>
                         ) : (
-                          <button
-                            onClick={() => handleRetryJob(item.id)}
-                            disabled={retryingId === item.id}
-                            className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-glow disabled:opacity-50"
-                          >
-                            <RotateCcw className={`w-3.5 h-3.5 ${retryingId === item.id ? 'animate-spin' : ''}`} /> Retry Upload
-                          </button>
+                          <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-semibold inline-flex items-center gap-1">
+                            <RotateCcw className="w-3 h-3" /> Auto-retrying in 30m
+                          </span>
                         )
                       ) : (
                         <span className="text-slate-500 font-mono text-[10px]">Processing...</span>
